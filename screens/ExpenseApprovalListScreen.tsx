@@ -5,7 +5,18 @@ import RNPickerSelect from 'react-native-picker-select'
 import { supabase } from '../lib/supabase'
 
 type Project = { id: string; project_name: string; bank_account: string | null }
-type ExpenseItem = { id: string; classification: string; work_category: string | null; work_subcategory: string | null; amount: number; vat_included: boolean; account_number: string | null; status: string; created_at: string }
+type ExpenseItem = { 
+  id: string; 
+  project_id: string;
+  classification: string; 
+  work_category: string | null; 
+  work_subcategory: string | null; 
+  amount: number; 
+  vat_included: boolean; 
+  account_number: string | null; 
+  status: string; 
+  created_at: string 
+}
 
 export default function ExpenseApprovalListScreen({ navigation }: any) {
   const [projects, setProjects] = useState<Project[]>([])
@@ -99,7 +110,44 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
     }
   }
 
+  // 작업일지 결제완료 처리 함수
+  const updateWorkLogPaymentStatus = async (expense: ExpenseItem, paymentCompleted: boolean) => {
+    // 직영/외주인 경우에만 작업일지 결제완료 처리
+    if (expense.classification !== '직영' && expense.classification !== '외주') {
+      return
+    }
+
+    // 공정과 작업자 정보가 있어야 함
+    if (!expense.work_category || !expense.work_subcategory) {
+      return
+    }
+
+    try {
+      // 해당 프로젝트, 공정, 작업자의 작업일지들을 찾아서 결제완료 상태 변경
+      const { error } = await supabase
+        .from('work_logs')
+        .update({ payment_completed: paymentCompleted })
+        .eq('project_id', expense.project_id)
+        .eq('work_cate1', expense.work_category)
+        .eq('worker_name', expense.work_subcategory)
+
+      if (error) {
+        console.error('작업일지 결제상태 변경 실패:', error)
+        throw error
+      }
+
+      console.log(`작업일지 결제상태 변경 성공: ${expense.work_category} - ${expense.work_subcategory}`)
+    } catch (error) {
+      console.error('작업일지 업데이트 오류:', error)
+      // 에러가 있어도 사용자에게는 전체 프로세스를 중단하지 않음
+    }
+  }
+
   const handleStatusChange = async (expenseId: string, currentStatus: string) => {
+    // 현재 expense 객체 찾기
+    const expense = expenses.find(e => e.id === expenseId)
+    if (!expense) return
+
     if (currentStatus === 'pending') {
       Alert.alert(
         '상태 변경',
@@ -109,17 +157,23 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
           {
             text: '확인',
             onPress: async () => {
-              const { error } = await supabase
-                .from('expense_approvals')
-                .update({ status: 'paid' })
-                .eq('id', expenseId)
+              try {
+                // 1. 지출결의서 상태 변경
+                const { error: expenseError } = await supabase
+                  .from('expense_approvals')
+                  .update({ status: 'paid' })
+                  .eq('id', expenseId)
 
-              if (error) {
-                console.error('Status update error:', error)
-                Alert.alert('오류', '상태 변경에 실패했습니다')
-              } else {
+                if (expenseError) throw expenseError
+
+                // 2. 작업일지 결제완료 처리
+                await updateWorkLogPaymentStatus(expense, true)
+
                 Alert.alert('성공', '완료로 변경되었습니다')
                 loadExpenses() // 데이터 새로고침
+              } catch (error: any) {
+                console.error('Status update error:', error)
+                Alert.alert('오류', '상태 변경에 실패했습니다')
               }
             }
           }
@@ -134,17 +188,23 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
           {
             text: '확인',
             onPress: async () => {
-              const { error } = await supabase
-                .from('expense_approvals')
-                .update({ status: 'pending' })
-                .eq('id', expenseId)
+              try {
+                // 1. 지출결의서 상태 변경
+                const { error: expenseError } = await supabase
+                  .from('expense_approvals')
+                  .update({ status: 'pending' })
+                  .eq('id', expenseId)
 
-              if (error) {
-                console.error('Status update error:', error)
-                Alert.alert('오류', '상태 변경에 실패했습니다')
-              } else {
+                if (expenseError) throw expenseError
+
+                // 2. 작업일지 결제완료 취소
+                await updateWorkLogPaymentStatus(expense, false)
+
                 Alert.alert('성공', '대기로 변경되었습니다')
                 loadExpenses() // 데이터 새로고침
+              } catch (error: any) {
+                console.error('Status update error:', error)
+                Alert.alert('오류', '상태 변경에 실패했습니다')
               }
             }
           }
