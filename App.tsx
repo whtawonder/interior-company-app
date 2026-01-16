@@ -41,18 +41,6 @@ function ProjectStack() {
   );
 }
 
-// 작업일지 입력 스택
-function WorkLogStack() {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen
-        name="작업일지 입력"
-        component={WorkLogScreen}
-      />
-    </Stack.Navigator>
-  );
-}
-
 // 작업일지 목록 스택 (수정 화면 추가)
 function WorkLogListStack() {
   return (
@@ -148,31 +136,19 @@ function MainTabNavigator() {
         }}
       />
 
-      {/* 2. 작업일지 입력 */}
-      <Tab.Screen
-        name="WorkLogTab"
-        component={WorkLogStack}
-        options={{
-          tabBarLabel: '작업일지입력',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24 }}>✍️</Text>
-          ),
-        }}
-      />
-
-      {/* 3. 작업일지 목록 */}
+      {/* 2. 작업일지 목록 */}
       <Tab.Screen
         name="WorkLogListTab"
         component={WorkLogListStack}
         options={{
-          tabBarLabel: '작업일지목록',
+          tabBarLabel: '작업일지',
           tabBarIcon: ({ color }) => (
             <Text style={{ fontSize: 24 }}>📋</Text>
           ),
         }}
       />
 
-      {/* 4. 현장일지 */}
+      {/* 3. 현장일지 */}
       <Tab.Screen
         name="SiteDiaryTab"
         component={SiteDiaryStack}
@@ -184,7 +160,7 @@ function MainTabNavigator() {
         }}
       />
 
-      {/* 5. 지출결의서 (새로 추가) */}
+      {/* 4. 지출결의서 */}
       <Tab.Screen
         name="ExpenseApprovalTab"
         component={ExpenseApprovalStack}
