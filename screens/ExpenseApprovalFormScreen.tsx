@@ -22,6 +22,7 @@ type WorkerWithCategory = {
   total_cost: number;
   display_label: string;
   value: string;
+  account_info?: string;
 }
 
 export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
@@ -149,6 +150,29 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
 
       const activeWorkerNames = new Set((activeWorkers || []).map(w => w.name))
 
+      // 각 작업자의 계좌정보 가져오기
+      const workerNames = [...new Set(Object.values(groupedData).map((item: any) => item.worker_name))]
+      const { data: accounts, error: accountsError } = await supabase
+        .from('subcontractor_accounts')
+        .select('company_name, bank_name, account_number, account_holder')
+        .in('company_name', workerNames)
+
+      if (accountsError) {
+        console.warn('계좌 정보 로드 실패:', accountsError)
+      }
+
+      // 계좌정보 맵 생성
+      const accountMap = new Map()
+      if (accounts) {
+        accounts.forEach(acc => {
+          let accountInfo = ''
+          if (acc.bank_name) accountInfo += acc.bank_name + ' '
+          if (acc.account_number) accountInfo += acc.account_number
+          if (acc.account_holder) accountInfo += ' ' + acc.account_holder
+          accountMap.set(acc.company_name, accountInfo.trim())
+        })
+      }
+
       // 활성 작업자이면서 미결제 작업일지에 있는 조합만 선택
       const filteredWorkers: WorkerWithCategory[] = Object.values(groupedData)
         .filter((item: any) => activeWorkerNames.has(item.worker_name))
@@ -157,7 +181,8 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
           worker_name: item.worker_name,
           total_cost: item.total_cost,
           display_label: `${item.work_cate1} - ${item.worker_name} (₩${item.total_cost.toLocaleString()})`,
-          value: `${item.work_cate1}|${item.worker_name}`
+          value: `${item.work_cate1}|${item.worker_name}`,
+          account_info: accountMap.get(item.worker_name) || ''
         }))
         .sort((a: any, b: any) => {
           // 공정명으로 먼저 정렬, 같으면 작업자명으로 정렬
@@ -196,7 +221,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
     Alert.alert('불러오기 완료', '작업일지 정보를 불러왔습니다')
   }
 
-  // 작업자 선택 시 공정과 금액 자동 입력
+  // 작업자 선택 시 공정, 금액, 계좌번호 자동 입력
   const handleWorkerSelect = (selectedValue: string) => {
     if (!selectedValue) return
 
@@ -210,6 +235,11 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
       
       // 금액 자동 입력
       setAmount(selectedWorker.total_cost.toString())
+      
+      // 계좌번호 자동 입력
+      if (selectedWorker.account_info) {
+        setAccountNumber(selectedWorker.account_info)
+      }
     }
   }
 
@@ -349,6 +379,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
               setCustomSubcategory('')
               setWorkCategory('')
               setAmount('')
+              setAccountNumber('')
             }}
             items={[
               { label: '시공', value: '시공' },
