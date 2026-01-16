@@ -98,16 +98,21 @@ export default function WorkLogListScreen({ route, navigation }: any) {
         <ScrollView ref={scrollViewRef} style={s.lc}>
           {workLogs.length === 0 ? (<View style={s.ec}><Text style={s.et}>작업일지가 없습니다</Text></View>) : (
             workLogs.map((log) => (
-              <View key={log.id} style={[s.card, highlightedId === log.id && s.cardHighlight]} onLayout={(e) => handleLayout(log.id, e.nativeEvent.layout.y)}>
+              <TouchableOpacity 
+                key={log.id} 
+                style={[s.card, highlightedId === log.id && s.cardHighlight]} 
+                onLayout={(e) => handleLayout(log.id, e.nativeEvent.layout.y)}
+                onPress={() => handleEdit(log)}
+                activeOpacity={0.7}
+              >
                 <View style={s.lh}>
                   <View style={s.dc}>
                     <Text style={s.dt}>{log.work_date}</Text>
                     <View style={s.cb}><Text style={s.cbt}>{log.work_cate1}</Text></View>
                   </View>
-                  <View style={s.br}>
-                    <TouchableOpacity onPress={() => handleEdit(log)} style={s.eb}><Text style={s.ebt}>수정</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDelete(log.id)} style={s.db}><Text style={s.dbt}>삭제</Text></TouchableOpacity>
-                  </View>
+                  <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDelete(log.id) }} style={s.db}>
+                    <Text style={s.dbt}>삭제</Text>
+                  </TouchableOpacity>
                 </View>
                 {selectedProject === 'all' && log.project && (<Text style={s.pn}>{log.project.project_name} ({log.project.client_name})</Text>)}
                 <Text style={s.wc} numberOfLines={2}>{log.work_content}</Text>
@@ -116,7 +121,7 @@ export default function WorkLogListScreen({ route, navigation }: any) {
                   <Text style={s.wt}>담당: {log.worker_name}</Text>
                   {log.notes && log.notes !== '기본' && (<View style={s.nb}><Text style={s.nt}>{log.notes}</Text></View>)}
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </ScrollView>
@@ -125,6 +130,6 @@ export default function WorkLogListScreen({ route, navigation }: any) {
   )
 }
 
-const s = StyleSheet.create({ sa: { flex: 1, backgroundColor: '#f5f5f5' }, co: { flex: 1, backgroundColor: '#f5f5f5' }, cc: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }, lt: { marginTop: 10, fontSize: 16, color: '#666' }, h: { backgroundColor: '#fff', padding: 20, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, hLeft: { flex: 1 }, ti: { fontSize: 28, fontWeight: 'bold', color: '#333', marginBottom: 8 }, ab: { backgroundColor: '#007AFF', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 }, abt: { color: '#fff', fontSize: 16, fontWeight: 'bold' }, sr: { flexDirection: 'column' }, tt: { fontSize: 16, color: '#666', marginBottom: 4 }, ct: { fontSize: 16, color: '#34C759', fontWeight: 'bold' }, fc: { backgroundColor: '#fff', padding: 15, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', alignItems: 'center' }, fl: { fontSize: 16, fontWeight: '600', color: '#333', marginRight: 10, width: 70 }, fp: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 8, overflow: 'hidden' }, lc: { flex: 1, padding: 20 }, ec: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }, et: { fontSize: 16, color: '#999' }, card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, elevation: 2, borderWidth: 2, borderColor: 'transparent' }, cardHighlight: { borderColor: '#34C759', backgroundColor: '#f0fff4', borderWidth: 3 }, lh: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }, dc: { flexDirection: 'row', alignItems: 'center' }, dt: { fontSize: 14, color: '#666', fontWeight: '600', marginRight: 8 }, cb: { backgroundColor: '#34C759', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12 }, cbt: { fontSize: 12, color: '#fff', fontWeight: '600' }, br: { flexDirection: 'row' }, eb: { paddingVertical: 4, paddingHorizontal: 12, marginRight: 8 }, ebt: { fontSize: 14, color: '#007AFF', fontWeight: '500' }, db: { paddingVertical: 4, paddingHorizontal: 12 }, dbt: { fontSize: 14, color: '#FF3B30', fontWeight: '500' }, pn: { fontSize: 14, color: '#007AFF', marginBottom: 6, fontWeight: '500' }, wc: { fontSize: 15, color: '#333', marginBottom: 12, lineHeight: 20 }, lf: { flexDirection: 'row', alignItems: 'center' }, cot: { fontSize: 16, color: '#333', fontWeight: 'bold', marginRight: 12 }, wt: { fontSize: 13, color: '#666', marginRight: 12 }, nb: { backgroundColor: '#FF9500', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 10 }, nt: { fontSize: 11, color: '#fff', fontWeight: '600' } })
+const s = StyleSheet.create({ sa: { flex: 1, backgroundColor: '#f5f5f5' }, co: { flex: 1, backgroundColor: '#f5f5f5' }, cc: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }, lt: { marginTop: 10, fontSize: 16, color: '#666' }, h: { backgroundColor: '#fff', padding: 20, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }, hLeft: { flex: 1 }, ti: { fontSize: 28, fontWeight: 'bold', color: '#333', marginBottom: 8 }, ab: { backgroundColor: '#007AFF', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 }, abt: { color: '#fff', fontSize: 16, fontWeight: 'bold' }, sr: { flexDirection: 'column' }, tt: { fontSize: 16, color: '#666', marginBottom: 4 }, ct: { fontSize: 16, color: '#34C759', fontWeight: 'bold' }, fc: { backgroundColor: '#fff', padding: 15, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', alignItems: 'center' }, fl: { fontSize: 16, fontWeight: '600', color: '#333', marginRight: 10, width: 70 }, fp: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 8, overflow: 'hidden' }, lc: { flex: 1, padding: 20 }, ec: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }, et: { fontSize: 16, color: '#999' }, card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, elevation: 2, borderWidth: 2, borderColor: 'transparent' }, cardHighlight: { borderColor: '#34C759', backgroundColor: '#f0fff4', borderWidth: 3 }, lh: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }, dc: { flexDirection: 'row', alignItems: 'center' }, dt: { fontSize: 14, color: '#666', fontWeight: '600', marginRight: 8 }, cb: { backgroundColor: '#34C759', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12 }, cbt: { fontSize: 12, color: '#fff', fontWeight: '600' }, br: { flexDirection: 'row' }, eb: { paddingVertical: 4, paddingHorizontal: 12, marginRight: 8 }, ebt: { fontSize: 14, color: '#007AFF', fontWeight: '500' }, db: { paddingVertical: 4, paddingHorizontal: 12 }, dbt: { fontSize: 14, color: '#FF3B30', fontWeight: '500' }, pn: { fontSize: 14, color: '#007AFF', marginBottom: 6, fontWeight: '500' }, wc: { fontSize: 15, color: '#333', marginBottom: 12, lineHeight: 20 }, lf: { flexDirection: 'row', alignItems: 'center' }, cot: { fontSize: 16, color: '#333', fontWeight: 'bold', marginRight: 12 }, wt: { fontSize: 13, color: '#666', marginRight: 12 }, nb: { backgroundColor: '#FF9500', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 10 }, nt: { fontSize: 11, color: '#fff', fontWeight: '600' } })
 
 const fps = StyleSheet.create({ inputIOS: { fontSize: 15, paddingVertical: 10, paddingHorizontal: 12, color: '#333', backgroundColor: 'transparent' }, inputAndroid: { fontSize: 15, paddingVertical: 8, paddingHorizontal: 12, color: '#333', backgroundColor: 'transparent' }, inputWeb: { fontSize: 15, paddingVertical: 10, paddingHorizontal: 12, color: '#333', backgroundColor: 'transparent' }, placeholder: { color: '#999' } })
