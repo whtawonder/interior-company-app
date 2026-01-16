@@ -139,6 +139,24 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
         return acc
       }, {})
 
+      // 이미 지출결의서가 등록된 (공정 + 작업자) 조합 가져오기
+      const { data: existingExpenses, error: expensesError } = await supabase
+        .from('expense_approvals')
+        .select('work_category, work_subcategory')
+        .eq('project_id', projectId)
+        .eq('classification', workerType)
+        .not('work_category', 'is', null)
+        .not('work_subcategory', 'is', null)
+
+      if (expensesError) {
+        console.warn('기존 지출결의서 조회 실패:', expensesError)
+      }
+
+      // 이미 등록된 조합을 Set으로 저장
+      const registeredCombinations = new Set(
+        (existingExpenses || []).map(exp => `${exp.work_category}|${exp.work_subcategory}`)
+      )
+
       // 해당 타입의 활성 작업자만 필터링
       const { data: activeWorkers, error: workersError } = await supabase
         .from('workers')
@@ -173,9 +191,12 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
         })
       }
 
-      // 활성 작업자이면서 미결제 작업일지에 있는 조합만 선택
+      // 활성 작업자이면서 미결제 작업일지에 있고, 아직 지출결의서가 등록되지 않은 조합만 선택
       const filteredWorkers: WorkerWithCategory[] = Object.values(groupedData)
-        .filter((item: any) => activeWorkerNames.has(item.worker_name))
+        .filter((item: any) => {
+          const combination = `${item.work_cate1}|${item.worker_name}`
+          return activeWorkerNames.has(item.worker_name) && !registeredCombinations.has(combination)
+        })
         .map((item: any) => ({
           work_cate1: item.work_cate1,
           worker_name: item.worker_name,
