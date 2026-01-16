@@ -198,7 +198,14 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
   return (
     <SafeAreaView style={s.container} edges={['top']}>
       <View style={s.header}>
-        <Text style={s.title}>지출결의서</Text>
+        <View style={s.headerLeft}>
+          <Text style={s.title}>지출결의서</Text>
+          {selectedProjectData?.bank_account && (
+            <View style={s.bankBadge}>
+              <Text style={s.bankBadgeText}>통장{selectedProjectData.bank_account}</Text>
+            </View>
+          )}
+        </View>
         <TouchableOpacity style={s.addButton} onPress={handleAddExpense}>
           <Text style={s.addButtonText}>+ 등록</Text>
         </TouchableOpacity>
@@ -226,13 +233,6 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
               />
             </View>
           </View>
-
-          {selectedProjectData?.bank_account && (
-            <View style={s.bankAccountContainer}>
-              <Text style={s.bankAccountLabel}>통장번호:</Text>
-              <Text style={s.bankAccountText}>{selectedProjectData.bank_account}</Text>
-            </View>
-          )}
 
           {/* 상태 필터 탭 */}
           <View style={s.tabContainer}>
@@ -350,16 +350,38 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' },
   loadingText: { marginTop: 10, fontSize: 16, color: '#666' },
-  header: { backgroundColor: '#fff', padding: 20, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#333' },
+  header: { 
+    backgroundColor: '#fff', 
+    padding: 20, 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#eee', 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'flex-start' 
+  },
+  headerLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#333', marginRight: 10 },
+  bankBadge: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignSelf: 'flex-start'
+  },
+  bankBadgeText: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: 'bold'
+  },
   addButton: { backgroundColor: '#007AFF', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
   addButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   filterContainer: { backgroundColor: '#fff', padding: 15, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#eee', flexDirection: 'row', alignItems: 'center' },
   filterLabel: { fontSize: 16, fontWeight: '600', color: '#333', marginRight: 10 },
   pickerWrapper: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 8, overflow: 'hidden' },
-  bankAccountContainer: { backgroundColor: '#F0F8FF', padding: 12, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#B3D9FF' },
-  bankAccountLabel: { fontSize: 14, fontWeight: '600', color: '#007AFF', marginRight: 8 },
-  bankAccountText: { fontSize: 14, color: '#007AFF', fontFamily: 'monospace' },
   
   // 탭 필터 스타일
   tabContainer: { 
