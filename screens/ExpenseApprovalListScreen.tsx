@@ -213,6 +213,42 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
     }
   }
 
+  const handleDeleteExpense = (expense: ExpenseItem) => {
+    Alert.alert(
+      '삭제 확인',
+      `이 지출결의서를 삭제하시겠습니까?\n\n분류: ${expense.classification}\n금액: ₩${expense.amount.toLocaleString()}`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // 완료 상태인 경우 작업일지 결제완료도 취소
+              if (expense.status === 'paid') {
+                await updateWorkLogPaymentStatus(expense, false)
+              }
+
+              // 지출결의서 삭제
+              const { error } = await supabase
+                .from('expense_approvals')
+                .delete()
+                .eq('id', expense.id)
+
+              if (error) throw error
+
+              Alert.alert('성공', '지출결의서가 삭제되었습니다')
+              loadExpenses() // 데이터 새로고침
+            } catch (error: any) {
+              console.error('Delete error:', error)
+              Alert.alert('오류', '삭제에 실패했습니다')
+            }
+          }
+        }
+      ]
+    )
+  }
+
   const handleAddExpense = () => {
     if (!selectedProject) {
       Alert.alert('안내', '프로젝트를 먼저 선택해주세요')
@@ -343,60 +379,69 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
               </View>
             ) : (
               filteredExpenses.map((expense) => (
-                <TouchableOpacity 
-                  key={expense.id} 
-                  style={s.card}
-                  onPress={() => handleEditExpense(expense)}
-                >
-                  <View style={s.cardHeader}>
-                    <View style={s.categoryRow}>
-                      {/* 1차 분류 */}
-                      <View style={s.classificationBadge}>
-                        <Text style={s.classificationText}>{expense.classification}</Text>
+                <View key={expense.id} style={s.card}>
+                  <TouchableOpacity 
+                    onPress={() => handleEditExpense(expense)}
+                    style={s.cardContent}
+                  >
+                    <View style={s.cardHeader}>
+                      <View style={s.categoryRow}>
+                        {/* 1차 분류 */}
+                        <View style={s.classificationBadge}>
+                          <Text style={s.classificationText}>{expense.classification}</Text>
+                        </View>
+                        
+                        {/* 2차 분류 */}
+                        {expense.work_category && (
+                          <View style={s.categoryBadge}>
+                            <Text style={s.categoryText}>{expense.work_category}</Text>
+                          </View>
+                        )}
+                        
+                        {/* 3차 분류 */}
+                        {expense.work_subcategory && (
+                          <View style={s.subcategoryBadge}>
+                            <Text style={s.subcategoryText}>{expense.work_subcategory}</Text>
+                          </View>
+                        )}
                       </View>
-                      
-                      {/* 2차 분류 */}
-                      {expense.work_category && (
-                        <View style={s.categoryBadge}>
-                          <Text style={s.categoryText}>{expense.work_category}</Text>
-                        </View>
-                      )}
-                      
-                      {/* 3차 분류 */}
-                      {expense.work_subcategory && (
-                        <View style={s.subcategoryBadge}>
-                          <Text style={s.subcategoryText}>{expense.work_subcategory}</Text>
-                        </View>
+
+                      {/* 상태 버튼 - 클릭 시 상태 변경 */}
+                      <TouchableOpacity
+                        style={[s.statusBadge, { backgroundColor: getStatusColor(expense.status) }]}
+                        onPress={(e) => {
+                          e.stopPropagation()
+                          handleStatusChange(expense.id, expense.status)
+                        }}
+                      >
+                        <Text style={s.statusText}>{getStatusText(expense.status)}</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={s.amountContainer}>
+                      <Text style={s.amountValue}>{formatCurrency(expense.amount)}</Text>
+                      {expense.vat_included && (
+                        <Text style={s.vatBadge}>VAT 포함</Text>
                       )}
                     </View>
 
-                    {/* 상태 버튼 - 클릭 시 상태 변경 */}
-                    <TouchableOpacity
-                      style={[s.statusBadge, { backgroundColor: getStatusColor(expense.status) }]}
-                      onPress={(e) => {
-                        e.stopPropagation()
-                        handleStatusChange(expense.id, expense.status)
-                      }}
-                    >
-                      <Text style={s.statusText}>{getStatusText(expense.status)}</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={s.amountContainer}>
-                    <Text style={s.amountValue}>{formatCurrency(expense.amount)}</Text>
-                    {expense.vat_included && (
-                      <Text style={s.vatBadge}>VAT 포함</Text>
+                    {expense.account_number && (
+                      <Text style={s.accountNumber}>계좌: {expense.account_number}</Text>
                     )}
-                  </View>
 
-                  {expense.account_number && (
-                    <Text style={s.accountNumber}>계좌: {expense.account_number}</Text>
-                  )}
+                    <Text style={s.createdDate}>
+                      등록: {new Date(expense.created_at).toLocaleDateString('ko-KR')}
+                    </Text>
+                  </TouchableOpacity>
 
-                  <Text style={s.createdDate}>
-                    등록: {new Date(expense.created_at).toLocaleDateString('ko-KR')}
-                  </Text>
-                </TouchableOpacity>
+                  {/* 삭제 버튼 */}
+                  <TouchableOpacity
+                    style={s.deleteButton}
+                    onPress={() => handleDeleteExpense(expense)}
+                  >
+                    <Text style={s.deleteButtonText}>삭제</Text>
+                  </TouchableOpacity>
+                </View>
               ))
             )}
           </ScrollView>
@@ -494,7 +539,18 @@ const s = StyleSheet.create({
   listContainer: { flex: 1, padding: 20 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 16, color: '#999' },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 12, elevation: 2 },
+  
+  // 카드 레이아웃 수정 - 삭제 버튼을 위한 구조
+  card: { 
+    backgroundColor: '#fff', 
+    borderRadius: 12, 
+    marginBottom: 12, 
+    elevation: 2,
+    overflow: 'hidden'
+  },
+  cardContent: {
+    padding: 16
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
   
   // 분류를 한 줄로 배치
@@ -565,7 +621,21 @@ const s = StyleSheet.create({
   amountValue: { fontSize: 20, fontWeight: 'bold', color: '#333', flex: 1 },
   vatBadge: { fontSize: 10, color: '#FF9500', backgroundColor: '#FFF3E0', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 4, fontWeight: '600' },
   accountNumber: { fontSize: 13, color: '#666', marginTop: 4, fontFamily: 'monospace' },
-  createdDate: { fontSize: 11, color: '#999', marginTop: 6 }
+  createdDate: { fontSize: 11, color: '#999', marginTop: 6 },
+  
+  // 삭제 버튼
+  deleteButton: {
+    backgroundColor: '#FF3B30',
+    padding: 12,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#FFE5E5'
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600'
+  }
 })
 
 const pickerStyles = StyleSheet.create({
