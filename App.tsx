@@ -28,16 +28,14 @@ const Stack = createNativeStackNavigator();
 // 프로젝트 관리 스택
 function ProjectStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen
         name="ProjectManagement"
         component={ProjectManagementScreen}
-        //options={{ title: '프로젝트 관리2' }}//
       />
       <Stack.Screen
         name="프로젝트 입력"
         component={ProjectFormScreen}
-        //options={{ title: '프로젝트 입력' }}//
       />
     </Stack.Navigator>
   );
@@ -46,11 +44,10 @@ function ProjectStack() {
 // 작업일지 입력 스택
 function WorkLogStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen
         name="작업일지 입력"
         component={WorkLogScreen}
-        options={{ title: '작업일지 입력' }}
       />
     </Stack.Navigator>
   );
@@ -59,16 +56,14 @@ function WorkLogStack() {
 // 작업일지 목록 스택 (수정 화면 추가)
 function WorkLogListStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen
         name="WorkLogList"
         component={WorkLogListScreen}
-        options={{ title: '작업일지 목록' }}
       />
       <Stack.Screen
         name="작업일지 입력"
         component={WorkLogScreen}
-        options={{ title: '작업일지 수정' }}
       />
     </Stack.Navigator>
   );
@@ -77,21 +72,18 @@ function WorkLogListStack() {
 // 현장일지 스택
 function SiteDiaryStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen
         name="SiteDiaryList"
         component={SiteDiaryListScreen}
-        options={{ title: '현장일지' }}
       />
       <Stack.Screen
         name="SiteDiaryForm"
         component={SiteDiaryFormScreen}
-        options={{ title: '사진 추가' }}
       />
       <Stack.Screen
         name="SiteDiaryDetail"
         component={SiteDiaryDetailScreen}
-        options={{ title: '사진 상세' }}
       />
     </Stack.Navigator>
   );
@@ -100,26 +92,23 @@ function SiteDiaryStack() {
 // 지출결의서 스택 수정
 function ExpenseApprovalStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen
         name="지출결의서"
         component={ExpenseApprovalListScreen}
-        options={{ title: '지출결의서' }}
       />
       <Stack.Screen
         name="지출결의서 입력"
         component={ExpenseApprovalFormScreen}
-        options={{ title: '지출결의서 입력' }}
       />
       <Stack.Screen
         name="계좌 관리"
         component={SubcontractorAccountManagementScreen}
-        options={{ title: '계좌 관리' }}
       />
       <Stack.Screen
         name="계좌 선택"
         component={AccountSelectionModal}
-        options={{ title: '계좌 선택', presentation: 'modal' }}
+        options={{ presentation: 'modal' }}
       />
     </Stack.Navigator>
   );
