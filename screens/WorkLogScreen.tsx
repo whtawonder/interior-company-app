@@ -28,7 +28,7 @@ export default function WorkLogScreen({ route, navigation }: any) {
   const [cost, setCost] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [workerName, setWorkerName] = useState('')
-  const [selectedWorker, setSelectedWorker] = useState<string>('')
+  const [selectedWorker, setSelectedWorker] = useState<string>('direct')
   const [notes, setNotes] = useState('기본')
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -67,6 +67,7 @@ export default function WorkLogScreen({ route, navigation }: any) {
       setCost(logData.cost.toString())
       setSelectedCategory(logData.work_cate1)
       setWorkerName(logData.worker_name)
+      setSelectedWorker('direct')
       setNotes(logData.notes || '기본')
       setSelectedDate(new Date(logData.work_date))
       
@@ -89,12 +90,14 @@ export default function WorkLogScreen({ route, navigation }: any) {
   
   // 작업자 선택 시 금액 자동 입력
   useEffect(() => {
-    if (selectedWorker) {
-      const worker = workers.find(w => w.name === selectedWorker)
+    if (selectedWorker && selectedWorker !== 'direct') {
+      const worker = workers.find(w => w.id === selectedWorker)
       if (worker) {
         setCost(worker.default_cost.toString())
         setWorkerName(worker.name)
       }
+    } else if (selectedWorker === 'direct') {
+      // 직접 입력 모드로 돌아갈 때는 초기화하지 않음
     }
   }, [selectedWorker, workers])
 
@@ -217,7 +220,7 @@ export default function WorkLogScreen({ route, navigation }: any) {
     setCost('')
     setSelectedCategory('')
     setWorkerName('')
-    setSelectedWorker('')
+    setSelectedWorker('direct')
     setNotes('기본')
     setSelectedDate(new Date()) 
   }
@@ -327,25 +330,23 @@ export default function WorkLogScreen({ route, navigation }: any) {
             value={selectedWorker} 
             onValueChange={(v) => {
               setSelectedWorker(v)
-              if (!v) {
-                setWorkerName('')
-                setCost('')
+              if (v === 'direct') {
+                // 직접 입력 모드로 선택시 기존 값 유지
               }
             }} 
             items={[
-              { label: '직접 입력', value: '' },
+              { label: '직접 입력', value: 'direct' },
               ...(workers || []).map(w => ({ 
-                label: `${w.name} (${w.default_cost.toLocaleString()}원)`, 
-                value: w.name 
+                label: `${w.name} (₩${w.default_cost.toLocaleString()})`, 
+                value: w.id 
               }))
             ]} 
-            placeholder={{ label: '작업자를 선택하세요', value: '' }} 
             style={ps} 
             useNativeAndroidPickerStyle={false} 
           />
         </View>
         
-        {!selectedWorker && (
+        {selectedWorker === 'direct' && (
           <TextInput 
             style={[s.i, { marginTop: 10 }]} 
             value={workerName} 

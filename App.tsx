@@ -10,6 +10,7 @@ import ProjectManagementScreen from './screens/ProjectManagementScreen';
 import ProjectFormScreen from './screens/ProjectFormScreen';
 import WorkLogScreen from './screens/WorkLogScreen';
 import WorkLogListScreen from './screens/WorkLogListScreen';
+import WorkerManagementScreen from './screens/WorkerManagementScreen';
 
 // 새로 추가된 현장일지 화면들
 import SiteDiaryListScreen from './screens/SiteDiaryListScreen';
@@ -52,6 +53,10 @@ function WorkLogListStack() {
       <Stack.Screen
         name="작업일지 입력"
         component={WorkLogScreen}
+      />
+      <Stack.Screen
+        name="작업자 관리"
+        component={WorkerManagementScreen}
       />
     </Stack.Navigator>
   );
