@@ -147,17 +147,18 @@ export default function SiteDiaryListScreen({ navigation }: any) {
         </View>
 
         <View style={styles.filterContainer}>
-          <Text style={styles.label}>프로젝트</Text>
+          <Text style={styles.filterLabel}>프로젝트:</Text>
           <View style={styles.pickerWrapper}>
             <RNPickerSelect
               value={selectedProject}
               onValueChange={(value) => setSelectedProject(value)}
               items={projects.map((p) => ({
-                label: `${p.project_name} (${p.client_name})`,
+                label: p.project_name,
                 value: p.id,
               }))}
               placeholder={{ label: '프로젝트 선택', value: '' }}
               style={pickerSelectStyles}
+              useNativeAndroidPickerStyle={false}
             />
           </View>
         </View>
@@ -210,21 +211,24 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     backgroundColor: '#FFF',
-    padding: 16,
+    padding: 15,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#eee',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  label: {
-    fontSize: 14,
+  filterLabel: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
+    marginRight: 10,
   },
   pickerWrapper: {
-    borderWidth: 1,
-    borderColor: '#DDD',
+    flex: 1,
+    backgroundColor: '#f5f5f5',
     borderRadius: 8,
-    backgroundColor: '#FFF',
+    overflow: 'hidden',
   },
   headerActions: {
     padding: 16,
@@ -325,21 +329,21 @@ const styles = StyleSheet.create({
 
 const pickerSelectStyles = StyleSheet.create({
   inputIOS: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    fontSize: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     color: '#333',
   },
   inputAndroid: {
-    fontSize: 16,
+    fontSize: 15,
     paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     color: '#333',
   },
   inputWeb: {
-    fontSize: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    fontSize: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     color: '#333',
   },
 });
