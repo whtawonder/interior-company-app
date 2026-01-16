@@ -96,16 +96,47 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
   }
 
   const loadWorkersByType = async (workerType: string) => {
-    const { data, error } = await supabase
-      .from('workers')
-      .select('id, name, worker_type')
-      .eq('worker_type', workerType)
-      .eq('is_active', true)
-      .order('name')
+    if (!projectId) {
+      setWorkers([])
+      return
+    }
 
-    if (!error && data) {
-      setWorkers(data as Worker[])
-    } else {
+    try {
+      // 1. 해당 프로젝트의 미결제 작업일지에서 작업자 이름 가져오기
+      const { data: unpaidLogs, error: logsError } = await supabase
+        .from('work_logs')
+        .select('work_subcategory')
+        .eq('project_id', projectId)
+        .eq('payment_completed', false)
+        .not('work_subcategory', 'is', null)
+
+      if (logsError) throw logsError
+
+      // 작업일지에 있는 작업자 이름들 (중복 제거)
+      const workerNamesInLogs = [...new Set(
+        (unpaidLogs || []).map(log => log.work_subcategory).filter(Boolean)
+      )] as string[]
+
+      if (workerNamesInLogs.length === 0) {
+        // 미결제 작업일지에 작업자가 없으면 빈 목록
+        setWorkers([])
+        return
+      }
+
+      // 2. 해당 타입의 활성 작업자 중에서 작업일지에 있는 작업자만 필터링
+      const { data: allWorkers, error: workersError } = await supabase
+        .from('workers')
+        .select('id, name, worker_type')
+        .eq('worker_type', workerType)
+        .eq('is_active', true)
+        .in('name', workerNamesInLogs)
+        .order('name')
+
+      if (workersError) throw workersError
+
+      setWorkers(allWorkers as Worker[] || [])
+    } catch (error) {
+      console.error('작업자 로드 오류:', error)
       setWorkers([])
     }
   }
@@ -321,6 +352,9 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
         {/* 작업자 선택 / 공정 세부분류 */}
         <Text style={s.label}>
           {isWorkerTypeClassification ? '작업자 선택' : '공정 세부분류'}
+          {isWorkerTypeClassification && workers.length === 0 && (
+            <Text style={s.warningNote}> (미결제 작업일지 없음)</Text>
+          )}
         </Text>
         <View style={s.toggleRow}>
           <TouchableOpacity
@@ -362,7 +396,9 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
               style={ps}
               useNativeAndroidPickerStyle={false}
               placeholder={{ 
-                label: isWorkerTypeClassification ? '작업자 선택' : '세부분류 선택', 
+                label: isWorkerTypeClassification 
+                  ? (workers.length === 0 ? '미결제 작업일지에 작업자 없음' : '작업자 선택')
+                  : '세부분류 선택', 
                 value: '' 
               }}
               disabled={!isWorkerTypeClassification && !workCategory && !useCustomCategory}
@@ -512,6 +548,7 @@ const s = StyleSheet.create({
   section: { marginBottom: 20 },
   label: { fontSize: 16, fontWeight: '600', marginTop: 15, marginBottom: 8, color: '#333' },
   disabledNote: { fontSize: 13, color: '#FF9500', fontWeight: 'normal' },
+  warningNote: { fontSize: 13, color: '#FF3B30', fontWeight: 'normal' },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, fontSize: 16 },
   textArea: { height: 80, textAlignVertical: 'top' },
   pickerContainer: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, overflow: 'hidden' },
