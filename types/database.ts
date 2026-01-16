@@ -40,6 +40,19 @@ export type WorkCategory = {
   category_name: string
   description: string | null
 }
+
+export type WorkerType = '직영' | '외주'
+
+export interface Worker {
+  id: string
+  name: string
+  default_cost: number
+  is_active: boolean
+  worker_type: WorkerType
+  created_at?: string
+  updated_at?: string
+}
+
 export interface SitePhoto {
   id: string;
   project_id: string;
@@ -57,4 +70,3 @@ export interface SitePhotoWithProject extends SitePhoto {
     client_name: string;
   };
 }
-
