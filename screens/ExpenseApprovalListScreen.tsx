@@ -12,45 +12,69 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
   const [selectedProject, setSelectedProject] = useState<string>('')
   const [selectedProjectData, setSelectedProjectData] = useState<Project | null>(null)
   const [expenses, setExpenses] = useState<ExpenseItem[]>([])
+  const [filteredExpenses, setFilteredExpenses] = useState<ExpenseItem[]>([])
+  const [statusFilter, setStatusFilter] = useState<string>('all') // 'all', 'pending', 'paid'
   const [loading, setLoading] = useState(true)
 
+  // 화면이 포커스될 때마다 데이터 새로고침
   useEffect(() => { 
     const unsubscribe = navigation.addListener('focus', () => { 
-      loadProjects() 
+      loadData()
     })
     return unsubscribe 
   }, [navigation])
 
+  // selectedProject가 변경될 때마다 지출결의서 로드
   useEffect(() => { 
     if (selectedProject) { 
-      loadExpenses() 
+      loadExpenses()
       const project = projects.find(p => p.id === selectedProject)
       setSelectedProjectData(project || null)
-    } 
-  }, [selectedProject])
+    } else {
+      setExpenses([])
+      setFilteredExpenses([])
+      setSelectedProjectData(null)
+    }
+  }, [selectedProject, projects])
+
+  // 상태 필터가 변경될 때마다 필터링
+  useEffect(() => {
+    filterExpenses()
+  }, [statusFilter, expenses])
+
+  // 초기 데이터 로드
+  const loadData = async () => {
+    setLoading(true)
+    await loadProjects()
+    setLoading(false)
+  }
 
   const loadProjects = async () => {
-    setLoading(true)
     const { data, error } = await supabase
       .from('projects')
       .select('id, project_name, bank_account')
       .order('created_at', { ascending: false })
     
     if (error) {
+      console.error('Project load error:', error)
       Alert.alert('오류', '프로젝트를 불러올 수 없습니다')
-      setLoading(false)
       return
     }
 
     setProjects(data || [])
+    
+    // 프로젝트가 있고 선택된 프로젝트가 없으면 첫 번째 프로젝트 선택
     if (data && data.length > 0 && !selectedProject) {
       setSelectedProject(data[0].id)
     }
-    setLoading(false)
   }
 
   const loadExpenses = async () => {
-    if (!selectedProject) return
+    if (!selectedProject) {
+      setExpenses([])
+      setFilteredExpenses([])
+      return
+    }
 
     const { data, error } = await supabase
       .from('expense_approvals')
@@ -59,12 +83,74 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error(error)
+      console.error('Expense load error:', error)
       Alert.alert('오류', '지출결의서를 불러올 수 없습니다')
       return
     }
 
     setExpenses(data || [])
+  }
+
+  const filterExpenses = () => {
+    if (statusFilter === 'all') {
+      setFilteredExpenses(expenses)
+    } else {
+      setFilteredExpenses(expenses.filter(e => e.status === statusFilter))
+    }
+  }
+
+  const handleStatusChange = async (expenseId: string, currentStatus: string) => {
+    if (currentStatus === 'pending') {
+      Alert.alert(
+        '상태 변경',
+        '완료로 변경하시겠습니까?',
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '확인',
+            onPress: async () => {
+              const { error } = await supabase
+                .from('expense_approvals')
+                .update({ status: 'paid' })
+                .eq('id', expenseId)
+
+              if (error) {
+                console.error('Status update error:', error)
+                Alert.alert('오류', '상태 변경에 실패했습니다')
+              } else {
+                Alert.alert('성공', '완료로 변경되었습니다')
+                loadExpenses() // 데이터 새로고침
+              }
+            }
+          }
+        ]
+      )
+    } else if (currentStatus === 'paid') {
+      Alert.alert(
+        '상태 변경',
+        '대기로 변경하시겠습니까?',
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '확인',
+            onPress: async () => {
+              const { error } = await supabase
+                .from('expense_approvals')
+                .update({ status: 'pending' })
+                .eq('id', expenseId)
+
+              if (error) {
+                console.error('Status update error:', error)
+                Alert.alert('오류', '상태 변경에 실패했습니다')
+              } else {
+                Alert.alert('성공', '대기로 변경되었습니다')
+                loadExpenses() // 데이터 새로고침
+              }
+            }
+          }
+        ]
+      )
+    }
   }
 
   const handleAddExpense = () => {
@@ -95,6 +181,11 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
 
   const formatCurrency = (amount: number) => '₩' + amount.toLocaleString('ko-KR')
 
+  // 통계 계산
+  const totalAmount = filteredExpenses.reduce((sum, e) => sum + e.amount, 0)
+  const pendingCount = expenses.filter(e => e.status === 'pending').length
+  const paidCount = expenses.filter(e => e.status === 'paid').length
+
   if (loading) {
     return (
       <View style={s.loadingContainer}>
@@ -113,87 +204,144 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      <View style={s.filterContainer}>
-        <Text style={s.filterLabel}>프로젝트:</Text>
-        <View style={s.pickerWrapper}>
-          <RNPickerSelect
-            value={selectedProject}
-            onValueChange={(value) => setSelectedProject(value)}
-            items={projects.map(p => ({ 
-              label: p.project_name, 
-              value: p.id 
-            }))}
-            style={pickerStyles}
-            useNativeAndroidPickerStyle={false}
-            placeholder={{ label: '프로젝트 선택', value: '' }}
-          />
+      {projects.length === 0 ? (
+        <View style={s.emptyContainer}>
+          <Text style={s.emptyText}>프로젝트를 먼저 등록해주세요</Text>
         </View>
-      </View>
-
-      {selectedProjectData?.bank_account && (
-        <View style={s.bankAccountContainer}>
-          <Text style={s.bankAccountLabel}>통장번호:</Text>
-          <Text style={s.bankAccountText}>{selectedProjectData.bank_account}</Text>
-        </View>
-      )}
-
-      <ScrollView style={s.listContainer} contentContainerStyle={{ paddingBottom: 80 }}>
-        {expenses.length === 0 ? (
-          <View style={s.emptyContainer}>
-            <Text style={s.emptyText}>등록된 지출결의서가 없습니다</Text>
+      ) : (
+        <>
+          <View style={s.filterContainer}>
+            <Text style={s.filterLabel}>프로젝트:</Text>
+            <View style={s.pickerWrapper}>
+              <RNPickerSelect
+                value={selectedProject}
+                onValueChange={(value) => setSelectedProject(value)}
+                items={projects.map(p => ({ 
+                  label: p.project_name, 
+                  value: p.id 
+                }))}
+                style={pickerStyles}
+                useNativeAndroidPickerStyle={false}
+                placeholder={{ label: '프로젝트 선택', value: '' }}
+              />
+            </View>
           </View>
-        ) : (
-          expenses.map((expense) => (
-            <TouchableOpacity 
-              key={expense.id} 
-              style={s.card}
-              onPress={() => handleEditExpense(expense)}
+
+          {selectedProjectData?.bank_account && (
+            <View style={s.bankAccountContainer}>
+              <Text style={s.bankAccountLabel}>통장번호:</Text>
+              <Text style={s.bankAccountText}>{selectedProjectData.bank_account}</Text>
+            </View>
+          )}
+
+          {/* 상태 필터 탭 */}
+          <View style={s.tabContainer}>
+            <TouchableOpacity
+              style={[s.tab, statusFilter === 'all' && s.tabActive]}
+              onPress={() => setStatusFilter('all')}
             >
-              <View style={s.cardHeader}>
-                <View style={s.categoryRow}>
-                  {/* 1차 분류 */}
-                  <View style={s.classificationBadge}>
-                    <Text style={s.classificationText}>{expense.classification}</Text>
-                  </View>
-                  
-                  {/* 2차 분류 */}
-                  {expense.work_category && (
-                    <View style={s.categoryBadge}>
-                      <Text style={s.categoryText}>{expense.work_category}</Text>
-                    </View>
-                  )}
-                  
-                  {/* 3차 분류 */}
-                  {expense.work_subcategory && (
-                    <View style={s.subcategoryBadge}>
-                      <Text style={s.subcategoryText}>{expense.work_subcategory}</Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={[s.statusBadge, { backgroundColor: getStatusColor(expense.status) }]}>
-                  <Text style={s.statusText}>{getStatusText(expense.status)}</Text>
-                </View>
-              </View>
-
-              <View style={s.amountContainer}>
-                <Text style={s.amountValue}>{formatCurrency(expense.amount)}</Text>
-                {expense.vat_included && (
-                  <Text style={s.vatBadge}>VAT 포함</Text>
-                )}
-              </View>
-
-              {expense.account_number && (
-                <Text style={s.accountNumber}>계좌: {expense.account_number}</Text>
-              )}
-
-              <Text style={s.createdDate}>
-                등록: {new Date(expense.created_at).toLocaleDateString('ko-KR')}
+              <Text style={[s.tabText, statusFilter === 'all' && s.tabTextActive]}>
+                전체 ({expenses.length})
               </Text>
             </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
+            <TouchableOpacity
+              style={[s.tab, statusFilter === 'pending' && s.tabActive]}
+              onPress={() => setStatusFilter('pending')}
+            >
+              <Text style={[s.tabText, statusFilter === 'pending' && s.tabTextActive]}>
+                대기 ({pendingCount})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.tab, statusFilter === 'paid' && s.tabActive]}
+              onPress={() => setStatusFilter('paid')}
+            >
+              <Text style={[s.tabText, statusFilter === 'paid' && s.tabTextActive]}>
+                완료 ({paidCount})
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 합계 표시 */}
+          {filteredExpenses.length > 0 && (
+            <View style={s.totalContainer}>
+              <Text style={s.totalLabel}>합계</Text>
+              <Text style={s.totalAmount}>{formatCurrency(totalAmount)}</Text>
+            </View>
+          )}
+
+          <ScrollView style={s.listContainer} contentContainerStyle={{ paddingBottom: 80 }}>
+            {filteredExpenses.length === 0 ? (
+              <View style={s.emptyContainer}>
+                <Text style={s.emptyText}>
+                  {statusFilter === 'all' 
+                    ? '등록된 지출결의서가 없습니다'
+                    : statusFilter === 'pending'
+                    ? '대기 중인 지출결의서가 없습니다'
+                    : '완료된 지출결의서가 없습니다'}
+                </Text>
+              </View>
+            ) : (
+              filteredExpenses.map((expense) => (
+                <TouchableOpacity 
+                  key={expense.id} 
+                  style={s.card}
+                  onPress={() => handleEditExpense(expense)}
+                >
+                  <View style={s.cardHeader}>
+                    <View style={s.categoryRow}>
+                      {/* 1차 분류 */}
+                      <View style={s.classificationBadge}>
+                        <Text style={s.classificationText}>{expense.classification}</Text>
+                      </View>
+                      
+                      {/* 2차 분류 */}
+                      {expense.work_category && (
+                        <View style={s.categoryBadge}>
+                          <Text style={s.categoryText}>{expense.work_category}</Text>
+                        </View>
+                      )}
+                      
+                      {/* 3차 분류 */}
+                      {expense.work_subcategory && (
+                        <View style={s.subcategoryBadge}>
+                          <Text style={s.subcategoryText}>{expense.work_subcategory}</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* 상태 버튼 - 클릭 시 상태 변경 */}
+                    <TouchableOpacity
+                      style={[s.statusBadge, { backgroundColor: getStatusColor(expense.status) }]}
+                      onPress={(e) => {
+                        e.stopPropagation()
+                        handleStatusChange(expense.id, expense.status)
+                      }}
+                    >
+                      <Text style={s.statusText}>{getStatusText(expense.status)}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={s.amountContainer}>
+                    <Text style={s.amountValue}>{formatCurrency(expense.amount)}</Text>
+                    {expense.vat_included && (
+                      <Text style={s.vatBadge}>VAT 포함</Text>
+                    )}
+                  </View>
+
+                  {expense.account_number && (
+                    <Text style={s.accountNumber}>계좌: {expense.account_number}</Text>
+                  )}
+
+                  <Text style={s.createdDate}>
+                    등록: {new Date(expense.created_at).toLocaleDateString('ko-KR')}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+        </>
+      )}
     </SafeAreaView>
   )
 }
@@ -212,6 +360,56 @@ const s = StyleSheet.create({
   bankAccountContainer: { backgroundColor: '#F0F8FF', padding: 12, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#B3D9FF' },
   bankAccountLabel: { fontSize: 14, fontWeight: '600', color: '#007AFF', marginRight: 8 },
   bankAccountText: { fontSize: 14, color: '#007AFF', fontFamily: 'monospace' },
+  
+  // 탭 필터 스타일
+  tabContainer: { 
+    backgroundColor: '#fff', 
+    flexDirection: 'row', 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#eee' 
+  },
+  tab: { 
+    flex: 1, 
+    paddingVertical: 14, 
+    alignItems: 'center', 
+    borderBottomWidth: 2, 
+    borderBottomColor: 'transparent' 
+  },
+  tabActive: { 
+    borderBottomColor: '#007AFF' 
+  },
+  tabText: { 
+    fontSize: 15, 
+    color: '#999', 
+    fontWeight: '500' 
+  },
+  tabTextActive: { 
+    color: '#007AFF', 
+    fontWeight: '700' 
+  },
+  
+  // 합계 표시
+  totalContainer: { 
+    backgroundColor: '#FFF9E6', 
+    padding: 12, 
+    paddingHorizontal: 20, 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE699'
+  },
+  totalLabel: { 
+    fontSize: 15, 
+    fontWeight: '600', 
+    color: '#666' 
+  },
+  totalAmount: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    color: '#FF9500' 
+  },
+  
   listContainer: { flex: 1, padding: 20 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 16, color: '#999' },

@@ -32,12 +32,12 @@ function ProjectStack() {
       <Stack.Screen
         name="ProjectManagement"
         component={ProjectManagementScreen}
-        options={{ title: '프로젝트 관리' }}
+        //options={{ title: '프로젝트 관리2' }}//
       />
       <Stack.Screen
         name="프로젝트 입력"
         component={ProjectFormScreen}
-        options={{ title: '프로젝트 입력' }}
+        //options={{ title: '프로젝트 입력' }}//
       />
     </Stack.Navigator>
   );

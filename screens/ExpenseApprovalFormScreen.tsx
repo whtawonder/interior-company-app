@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Platform, Alert } from 'react-native'
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  ScrollView, 
+  ActivityIndicator, 
+  Platform, 
+  Alert 
+} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import RNPickerSelect from 'react-native-picker-select'
 import { supabase } from '../lib/supabase'
@@ -11,6 +21,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
   const { projectId, expenseData, editMode } = route.params || {}
   
   const [loading, setLoading] = useState(false)
+  const [projectName, setProjectName] = useState('') // 프로젝트 이름
   const [classification, setClassification] = useState(expenseData?.classification || '시공')
   const [workCategory, setWorkCategory] = useState(expenseData?.work_category || '')
   const [workSubcategory, setWorkSubcategory] = useState(expenseData?.work_subcategory || '')
@@ -31,6 +42,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
   useEffect(() => {
     loadWorkCategories()
     loadUnpaidWorkLogs()
+    loadProjectInfo()
   }, [])
 
   useEffect(() => {
@@ -38,7 +50,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
       const category = workCategories.find(c => c.category_name === workCategory)
       setSubcategories(category?.subcategories || [])
     }
-  }, [workCategory, workCategories])
+  }, [workCategory, workCategories, useCustomCategory])
 
   // 분류가 직영 또는 외주인 경우 부가세 미포함으로 고정
   useEffect(() => {
@@ -47,6 +59,20 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
     }
   }, [classification])
 
+  const loadProjectInfo = async () => {
+    if (!projectId) return
+
+    const { data, error } = await supabase
+      .from('projects')
+      .select('project_name')
+      .eq('id', projectId)
+      .single()
+
+    if (!error && data) {
+      setProjectName(data.project_name)
+    }
+  }
+
   const loadWorkCategories = async () => {
     const { data, error } = await supabase
       .from('work_categories')
@@ -54,7 +80,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
       .order('category_name')
 
     if (!error && data) {
-      setWorkCategories(data)
+      setWorkCategories(data as any)
     }
   }
 
@@ -69,7 +95,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
       .order('work_date', { ascending: false })
 
     if (!error && data) {
-      setUnpaidWorkLogs(data)
+      setUnpaidWorkLogs(data as any)
     }
   }
 
@@ -154,6 +180,14 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
       <ScrollView style={s.scrollView}>
         <Text style={s.title}>{editMode ? '지출결의서 수정' : '지출결의서 등록'}</Text>
 
+        {/* 프로젝트 이름 표시 */}
+        {projectName && (
+          <View style={s.projectBadge}>
+            <Text style={s.projectLabel}>프로젝트</Text>
+            <Text style={s.projectName}>{projectName}</Text>
+          </View>
+        )}
+
         {/* 미결제 작업일지 불러오기 */}
         {!editMode && unpaidWorkLogs.length > 0 && (
           <View style={s.section}>
@@ -176,7 +210,10 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
                   >
                     <Text style={s.unpaidDate}>{log.work_date}</Text>
                     {log.work_category && (
-                      <Text style={s.unpaidCategory}>{log.work_category} {log.work_subcategory ? `> ${log.work_subcategory}` : ''}</Text>
+                      <Text style={s.unpaidCategory}>
+                        {log.work_category}
+                        {log.work_subcategory ? ` > ${log.work_subcategory}` : ''}
+                      </Text>
                     )}
                     {log.notes && (
                       <Text style={s.unpaidNotes} numberOfLines={1}>{log.notes}</Text>
@@ -281,7 +318,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
             <RNPickerSelect
               value={workSubcategory}
               onValueChange={(v) => setWorkSubcategory(v)}
-              items={subcategories.map(s => ({ label: s, value: s }))}
+              items={subcategories.map(su => ({ label: su, value: su }))}
               style={ps}
               useNativeAndroidPickerStyle={false}
               placeholder={{ label: '세부분류 선택', value: '' }}
@@ -307,26 +344,46 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
         </Text>
         <View style={s.toggleRow}>
           <TouchableOpacity
-            style={[s.toggleButton, vatIncluded && s.toggleButtonActive, isVatDisabled && s.toggleButtonDisabled]}
+            style={[
+              s.toggleButton,
+              vatIncluded && s.toggleButtonActive,
+              isVatDisabled && s.toggleButtonDisabled
+            ]}
             onPress={() => !isVatDisabled && setVatIncluded(true)}
             disabled={isVatDisabled}
           >
-            <Text style={[s.toggleText, vatIncluded && s.toggleTextActive, isVatDisabled && s.toggleTextDisabled]}>
+            <Text
+              style={[
+                s.toggleText,
+                vatIncluded && s.toggleTextActive,
+                isVatDisabled && s.toggleTextDisabled
+              ]}
+            >
               포함
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.toggleButton, !vatIncluded && s.toggleButtonActive, isVatDisabled && s.toggleButtonDisabled]}
+            style={[
+              s.toggleButton,
+              !vatIncluded && s.toggleButtonActive,
+              isVatDisabled && s.toggleButtonDisabled
+            ]}
             onPress={() => !isVatDisabled && setVatIncluded(false)}
             disabled={isVatDisabled}
           >
-            <Text style={[s.toggleText, !vatIncluded && s.toggleTextActive, isVatDisabled && s.toggleTextDisabled]}>
+            <Text
+              style={[
+                s.toggleText,
+                !vatIncluded && s.toggleTextActive,
+                isVatDisabled && s.toggleTextDisabled
+              ]}
+            >
               미포함
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* 계좌번호 - 불러오기 & 관리 버튼 추가 */}
+        {/* 계좌번호 - 불러오기 & 관리 버튼 */}
         <View style={s.accountRow}>
           <Text style={s.label}>계좌번호</Text>
           <View style={s.accountButtons}>
@@ -342,7 +399,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
           style={s.input}
           value={accountNumber}
           onChangeText={setAccountNumber}
-          placeholder="110-123-456789"
+          placeholder="국민은행 110-123-456789 홍길동"
           placeholderTextColor="#999"
           keyboardType="default"
         />
@@ -383,13 +440,39 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   scrollView: { flex: 1, padding: 20 },
-  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 20, marginTop: 20, color: '#333' },
+  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 10, marginTop: 20, color: '#333' },
+
+  // 프로젝트 배지
+  projectBadge: { 
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F4FD',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#007AFF'
+  },
+  projectLabel: { 
+    fontSize: 13,
+    color: '#007AFF',
+    fontWeight: '600',
+    marginRight: 8
+  },
+  projectName: { 
+    fontSize: 15,
+    color: '#007AFF',
+    fontWeight: 'bold',
+    flex: 1
+  },
+
   section: { marginBottom: 20 },
   label: { fontSize: 16, fontWeight: '600', marginTop: 15, marginBottom: 8, color: '#333' },
   disabledNote: { fontSize: 13, color: '#FF9500', fontWeight: 'normal' },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, fontSize: 16 },
   textArea: { height: 80, textAlignVertical: 'top' },
   pickerContainer: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, overflow: 'hidden' },
+
   toggleRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   toggleButton: { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, alignItems: 'center' },
   toggleButtonActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
@@ -397,31 +480,32 @@ const s = StyleSheet.create({
   toggleText: { fontSize: 14, color: '#666' },
   toggleTextActive: { color: '#fff', fontWeight: '600' },
   toggleTextDisabled: { color: '#999' },
-  
-  // 계좌번호 관련 스타일
+
+  // 계좌 관련
   accountRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginTop: 15, 
-    marginBottom: 8 
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 15,
+    marginBottom: 8
   },
   accountButtons: { 
-    flexDirection: 'row', 
-    gap: 8 
+    flexDirection: 'row',
+    gap: 8
   },
   accountActionButton: { 
-    backgroundColor: '#007AFF', 
-    paddingVertical: 6, 
-    paddingHorizontal: 12, 
-    borderRadius: 6 
+    backgroundColor: '#007AFF',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6
   },
   accountActionText: { 
-    color: '#fff', 
-    fontSize: 13, 
-    fontWeight: '600' 
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600'
   },
-  
+
+  // 미결제 작업일지
   unpaidButton: { backgroundColor: '#FF9500', padding: 14, borderRadius: 8, alignItems: 'center', marginBottom: 10 },
   unpaidButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   unpaidList: { backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden' },
@@ -429,6 +513,7 @@ const s = StyleSheet.create({
   unpaidDate: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 4 },
   unpaidCategory: { fontSize: 13, color: '#666', marginBottom: 2 },
   unpaidNotes: { fontSize: 12, color: '#999' },
+
   submitButton: { backgroundColor: '#007AFF', padding: 16, borderRadius: 8, alignItems: 'center', marginTop: 20 },
   submitButtonDisabled: { backgroundColor: '#999' },
   submitButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' }
