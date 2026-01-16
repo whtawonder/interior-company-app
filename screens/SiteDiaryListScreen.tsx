@@ -9,6 +9,7 @@ import {
   Image,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import RNPickerSelect from 'react-native-picker-select';
 import { supabase } from '../lib/supabase';
 import { SitePhotoWithProject } from '../types/database';
@@ -129,57 +130,80 @@ export default function SiteDiaryListScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.filterContainer}>
-        <Text style={styles.label}>프로젝트</Text>
-        <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            value={selectedProject}
-            onValueChange={(value) => setSelectedProject(value)}
-            items={projects.map((p) => ({
-              label: `${p.project_name} (${p.client_name})`,
-              value: p.id,
-            }))}
-            placeholder={{ label: '프로젝트 선택', value: '' }}
-            style={pickerSelectStyles}
-          />
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
+        {/* 헤더 */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>현장일지</Text>
         </View>
-      </View>
 
-      <View style={styles.headerActions}>
-        <Text style={styles.totalCount}>총 {photos.length}장</Text>
-        <TouchableOpacity
-          style={[styles.addButton, !selectedProject && styles.addButtonDisabled]}
-          onPress={() =>
-            navigation.navigate('SiteDiaryForm', { projectId: selectedProject })
-          }
-          disabled={!selectedProject}
-        >
-          <Text style={styles.addButtonText}>+ 사진 추가</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.filterContainer}>
+          <Text style={styles.label}>프로젝트</Text>
+          <View style={styles.pickerWrapper}>
+            <RNPickerSelect
+              value={selectedProject}
+              onValueChange={(value) => setSelectedProject(value)}
+              items={projects.map((p) => ({
+                label: `${p.project_name} (${p.client_name})`,
+                value: p.id,
+              }))}
+              placeholder={{ label: '프로젝트 선택', value: '' }}
+              style={pickerSelectStyles}
+            />
+          </View>
+        </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
-      ) : (
-        <FlatList
-          data={groupByDate()}
-          renderItem={renderDateGroup}
-          keyExtractor={(item) => item[0]}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>등록된 사진이 없습니다.</Text>
-          }
-        />
-      )}
-    </View>
+        <View style={styles.headerActions}>
+          <Text style={styles.totalCount}>총 {photos.length}장</Text>
+          <TouchableOpacity
+            style={[styles.addButton, !selectedProject && styles.addButtonDisabled]}
+            onPress={() =>
+              navigation.navigate('SiteDiaryForm', { projectId: selectedProject })
+            }
+            disabled={!selectedProject}
+          >
+            <Text style={styles.addButtonText}>+ 사진 추가</Text>
+          </TouchableOpacity>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
+        ) : (
+          <FlatList
+            data={groupByDate()}
+            renderItem={renderDateGroup}
+            keyExtractor={(item) => item[0]}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>등록된 사진이 없습니다.</Text>
+            }
+          />
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFF',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  header: {
+    backgroundColor: '#FFF',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
   },
   filterContainer: {
     backgroundColor: '#FFF',
