@@ -16,7 +16,13 @@ import { supabase } from '../lib/supabase'
 
 type WorkCategory = { id: string; category_name: string; subcategories: string[] }
 type UnpaidWorkLog = { id: string; work_date: string; work_category: string | null; work_subcategory: string | null; notes: string | null }
-type Worker = { id: string; name: string; worker_type: string }
+type WorkerWithCategory = { 
+  work_cate1: string; 
+  worker_name: string; 
+  total_cost: number;
+  display_label: string;
+  value: string;
+}
 
 export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
   const { projectId, expenseData, editMode } = route.params || {}
@@ -39,7 +45,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
   const [subcategories, setSubcategories] = useState<string[]>([])
   const [unpaidWorkLogs, setUnpaidWorkLogs] = useState<UnpaidWorkLog[]>([])
   const [showUnpaidLogs, setShowUnpaidLogs] = useState(false)
-  const [workers, setWorkers] = useState<Worker[]>([])
+  const [workersWithCategory, setWorkersWithCategory] = useState<WorkerWithCategory[]>([])
 
   useEffect(() => {
     loadWorkCategories()
@@ -64,9 +70,9 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
   // 분류가 변경되면 해당 타입의 작업자 불러오기
   useEffect(() => {
     if (classification === '직영' || classification === '외주') {
-      loadWorkersByType(classification)
+      loadWorkersWithCategoryByType(classification)
     } else {
-      setWorkers([])
+      setWorkersWithCategory([])
     }
   }, [classification])
 
@@ -95,49 +101,76 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
     }
   }
 
-  const loadWorkersByType = async (workerType: string) => {
+  const loadWorkersWithCategoryByType = async (workerType: string) => {
     if (!projectId) {
-      setWorkers([])
+      setWorkersWithCategory([])
       return
     }
 
     try {
-      // 1. 해당 프로젝트의 미결제 작업일지에서 작업자 이름 가져오기
+      // 해당 프로젝트의 미결제 작업일지를 공정별, 작업자별로 그룹화하여 합계 계산
       const { data: unpaidLogs, error: logsError } = await supabase
         .from('work_logs')
-        .select('worker_name')
+        .select('work_cate1, worker_name, cost')
         .eq('project_id', projectId)
         .eq('payment_completed', false)
         .not('worker_name', 'is', null)
+        .not('work_cate1', 'is', null)
 
       if (logsError) throw logsError
 
-      // 작업일지에 있는 작업자 이름들 (중복 제거)
-      const workerNamesInLogs = [...new Set(
-        (unpaidLogs || []).map(log => log.worker_name).filter(Boolean)
-      )] as string[]
-
-      if (workerNamesInLogs.length === 0) {
-        // 미결제 작업일지에 작업자가 없으면 빈 목록
-        setWorkers([])
+      if (!unpaidLogs || unpaidLogs.length === 0) {
+        setWorkersWithCategory([])
         return
       }
 
-      // 2. 해당 타입의 활성 작업자 중에서 작업일지에 있는 작업자만 필터링
-      const { data: allWorkers, error: workersError } = await supabase
+      // 공정 + 작업자 조합으로 그룹화하여 금액 합계 계산
+      const groupedData = unpaidLogs.reduce((acc: any, log: any) => {
+        const key = `${log.work_cate1}|${log.worker_name}`
+        if (!acc[key]) {
+          acc[key] = {
+            work_cate1: log.work_cate1,
+            worker_name: log.worker_name,
+            total_cost: 0
+          }
+        }
+        acc[key].total_cost += log.cost
+        return acc
+      }, {})
+
+      // 해당 타입의 활성 작업자만 필터링
+      const { data: activeWorkers, error: workersError } = await supabase
         .from('workers')
-        .select('id, name, worker_type')
+        .select('name')
         .eq('worker_type', workerType)
         .eq('is_active', true)
-        .in('name', workerNamesInLogs)
-        .order('name')
 
       if (workersError) throw workersError
 
-      setWorkers(allWorkers as Worker[] || [])
+      const activeWorkerNames = new Set((activeWorkers || []).map(w => w.name))
+
+      // 활성 작업자이면서 미결제 작업일지에 있는 조합만 선택
+      const filteredWorkers: WorkerWithCategory[] = Object.values(groupedData)
+        .filter((item: any) => activeWorkerNames.has(item.worker_name))
+        .map((item: any) => ({
+          work_cate1: item.work_cate1,
+          worker_name: item.worker_name,
+          total_cost: item.total_cost,
+          display_label: `${item.work_cate1} - ${item.worker_name} (₩${item.total_cost.toLocaleString()})`,
+          value: `${item.work_cate1}|${item.worker_name}`
+        }))
+        .sort((a: any, b: any) => {
+          // 공정명으로 먼저 정렬, 같으면 작업자명으로 정렬
+          if (a.work_cate1 !== b.work_cate1) {
+            return a.work_cate1.localeCompare(b.work_cate1)
+          }
+          return a.worker_name.localeCompare(b.worker_name)
+        })
+
+      setWorkersWithCategory(filteredWorkers)
     } catch (error) {
       console.error('작업자 로드 오류:', error)
-      setWorkers([])
+      setWorkersWithCategory([])
     }
   }
 
@@ -163,6 +196,23 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
     Alert.alert('불러오기 완료', '작업일지 정보를 불러왔습니다')
   }
 
+  // 작업자 선택 시 공정과 금액 자동 입력
+  const handleWorkerSelect = (selectedValue: string) => {
+    if (!selectedValue) return
+
+    setWorkSubcategory(selectedValue)
+
+    const selectedWorker = workersWithCategory.find(w => w.value === selectedValue)
+    if (selectedWorker) {
+      // 공정 자동 입력
+      setWorkCategory(selectedWorker.work_cate1)
+      setUseCustomCategory(false)
+      
+      // 금액 자동 입력
+      setAmount(selectedWorker.total_cost.toString())
+    }
+  }
+
   // 계좌 불러오기
   const handleLoadAccount = () => {
     navigation.navigate('계좌 선택', {
@@ -184,7 +234,9 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
     }
 
     const finalCategory = useCustomCategory ? customCategory : workCategory
-    const finalSubcategory = useCustomSubcategory ? customSubcategory : workSubcategory
+    const finalSubcategory = useCustomSubcategory ? customSubcategory : (
+      workSubcategory.includes('|') ? workSubcategory.split('|')[1] : workSubcategory
+    )
 
     setLoading(true)
 
@@ -295,6 +347,8 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
               // 분류 변경 시 세부분류 초기화
               setWorkSubcategory('')
               setCustomSubcategory('')
+              setWorkCategory('')
+              setAmount('')
             }}
             items={[
               { label: '시공', value: '시공' },
@@ -307,103 +361,167 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
           />
         </View>
 
-        {/* 공정 (대분류) */}
-        <Text style={s.label}>공정</Text>
-        <View style={s.toggleRow}>
-          <TouchableOpacity
-            style={[s.toggleButton, !useCustomCategory && s.toggleButtonActive]}
-            onPress={() => setUseCustomCategory(false)}
-          >
-            <Text style={[s.toggleText, !useCustomCategory && s.toggleTextActive]}>
-              목록에서 선택
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.toggleButton, useCustomCategory && s.toggleButtonActive]}
-            onPress={() => setUseCustomCategory(true)}
-          >
-            <Text style={[s.toggleText, useCustomCategory && s.toggleTextActive]}>
-              직접 입력
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {/* 직영/외주가 아닌 경우에만 공정 선택 표시 */}
+        {!isWorkerTypeClassification && (
+          <>
+            {/* 공정 (대분류) */}
+            <Text style={s.label}>공정</Text>
+            <View style={s.toggleRow}>
+              <TouchableOpacity
+                style={[s.toggleButton, !useCustomCategory && s.toggleButtonActive]}
+                onPress={() => setUseCustomCategory(false)}
+              >
+                <Text style={[s.toggleText, !useCustomCategory && s.toggleTextActive]}>
+                  목록에서 선택
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.toggleButton, useCustomCategory && s.toggleButtonActive]}
+                onPress={() => setUseCustomCategory(true)}
+              >
+                <Text style={[s.toggleText, useCustomCategory && s.toggleTextActive]}>
+                  직접 입력
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-        {useCustomCategory ? (
-          <TextInput
-            style={s.input}
-            value={customCategory}
-            onChangeText={setCustomCategory}
-            placeholder="공정 입력"
-            placeholderTextColor="#999"
-          />
-        ) : (
-          <View style={s.pickerContainer}>
-            <RNPickerSelect
-              value={workCategory}
-              onValueChange={(v) => setWorkCategory(v)}
-              items={workCategories.map(c => ({ label: c.category_name, value: c.category_name }))}
-              style={ps}
-              useNativeAndroidPickerStyle={false}
-              placeholder={{ label: '공정 선택', value: '' }}
-            />
-          </View>
+            {useCustomCategory ? (
+              <TextInput
+                style={s.input}
+                value={customCategory}
+                onChangeText={setCustomCategory}
+                placeholder="공정 입력"
+                placeholderTextColor="#999"
+              />
+            ) : (
+              <View style={s.pickerContainer}>
+                <RNPickerSelect
+                  value={workCategory}
+                  onValueChange={(v) => setWorkCategory(v)}
+                  items={workCategories.map(c => ({ label: c.category_name, value: c.category_name }))}
+                  style={ps}
+                  useNativeAndroidPickerStyle={false}
+                  placeholder={{ label: '공정 선택', value: '' }}
+                />
+              </View>
+            )}
+
+            {/* 공정 세부분류 */}
+            <Text style={s.label}>공정 세부분류</Text>
+            <View style={s.toggleRow}>
+              <TouchableOpacity
+                style={[s.toggleButton, !useCustomSubcategory && s.toggleButtonActive]}
+                onPress={() => setUseCustomSubcategory(false)}
+              >
+                <Text style={[s.toggleText, !useCustomSubcategory && s.toggleTextActive]}>
+                  목록에서 선택
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.toggleButton, useCustomSubcategory && s.toggleButtonActive]}
+                onPress={() => setUseCustomSubcategory(true)}
+              >
+                <Text style={[s.toggleText, useCustomSubcategory && s.toggleTextActive]}>
+                  직접 입력
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {useCustomSubcategory ? (
+              <TextInput
+                style={s.input}
+                value={customSubcategory}
+                onChangeText={setCustomSubcategory}
+                placeholder="세부분류 입력"
+                placeholderTextColor="#999"
+              />
+            ) : (
+              <View style={s.pickerContainer}>
+                <RNPickerSelect
+                  value={workSubcategory}
+                  onValueChange={(v) => setWorkSubcategory(v)}
+                  items={subcategories.map(su => ({ label: su, value: su }))}
+                  style={ps}
+                  useNativeAndroidPickerStyle={false}
+                  placeholder={{ label: '세부분류 선택', value: '' }}
+                  disabled={!workCategory && !useCustomCategory}
+                />
+              </View>
+            )}
+          </>
         )}
 
-        {/* 작업자 선택 / 공정 세부분류 */}
-        <Text style={s.label}>
-          {isWorkerTypeClassification ? '작업자 선택' : '공정 세부분류'}
-          {isWorkerTypeClassification && workers.length === 0 && (
-            <Text style={s.warningNote}> (미결제 작업일지 없음)</Text>
-          )}
-        </Text>
-        <View style={s.toggleRow}>
-          <TouchableOpacity
-            style={[s.toggleButton, !useCustomSubcategory && s.toggleButtonActive]}
-            onPress={() => setUseCustomSubcategory(false)}
-          >
-            <Text style={[s.toggleText, !useCustomSubcategory && s.toggleTextActive]}>
-              목록에서 선택
+        {/* 직영/외주인 경우 작업자 선택 (공정별) */}
+        {isWorkerTypeClassification && (
+          <>
+            <Text style={s.label}>
+              작업자 선택 (공정별)
+              {workersWithCategory.length === 0 && (
+                <Text style={s.warningNote}> (미결제 작업일지 없음)</Text>
+              )}
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.toggleButton, useCustomSubcategory && s.toggleButtonActive]}
-            onPress={() => setUseCustomSubcategory(true)}
-          >
-            <Text style={[s.toggleText, useCustomSubcategory && s.toggleTextActive]}>
-              직접 입력
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <View style={s.toggleRow}>
+              <TouchableOpacity
+                style={[s.toggleButton, !useCustomSubcategory && s.toggleButtonActive]}
+                onPress={() => setUseCustomSubcategory(false)}
+              >
+                <Text style={[s.toggleText, !useCustomSubcategory && s.toggleTextActive]}>
+                  목록에서 선택
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.toggleButton, useCustomSubcategory && s.toggleButtonActive]}
+                onPress={() => {
+                  setUseCustomSubcategory(true)
+                  setUseCustomCategory(true)
+                }}
+              >
+                <Text style={[s.toggleText, useCustomSubcategory && s.toggleTextActive]}>
+                  직접 입력
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-        {useCustomSubcategory ? (
-          <TextInput
-            style={s.input}
-            value={customSubcategory}
-            onChangeText={setCustomSubcategory}
-            placeholder={isWorkerTypeClassification ? "작업자 이름 입력" : "세부분류 입력"}
-            placeholderTextColor="#999"
-          />
-        ) : (
-          <View style={s.pickerContainer}>
-            <RNPickerSelect
-              value={workSubcategory}
-              onValueChange={(v) => setWorkSubcategory(v)}
-              items={
-                isWorkerTypeClassification
-                  ? workers.map(w => ({ label: w.name, value: w.name }))
-                  : subcategories.map(su => ({ label: su, value: su }))
-              }
-              style={ps}
-              useNativeAndroidPickerStyle={false}
-              placeholder={{ 
-                label: isWorkerTypeClassification 
-                  ? (workers.length === 0 ? '미결제 작업일지에 작업자 없음' : '작업자 선택')
-                  : '세부분류 선택', 
-                value: '' 
-              }}
-              disabled={!isWorkerTypeClassification && !workCategory && !useCustomCategory}
-            />
-          </View>
+            {useCustomSubcategory ? (
+              <>
+                <Text style={[s.label, { marginTop: 10 }]}>공정</Text>
+                <TextInput
+                  style={s.input}
+                  value={customCategory}
+                  onChangeText={setCustomCategory}
+                  placeholder="공정 입력"
+                  placeholderTextColor="#999"
+                />
+                <Text style={[s.label, { marginTop: 10 }]}>작업자</Text>
+                <TextInput
+                  style={s.input}
+                  value={customSubcategory}
+                  onChangeText={setCustomSubcategory}
+                  placeholder="작업자 이름 입력"
+                  placeholderTextColor="#999"
+                />
+              </>
+            ) : (
+              <View style={s.pickerContainer}>
+                <RNPickerSelect
+                  value={workSubcategory}
+                  onValueChange={handleWorkerSelect}
+                  items={workersWithCategory.map(w => ({ 
+                    label: w.display_label, 
+                    value: w.value 
+                  }))}
+                  style={ps}
+                  useNativeAndroidPickerStyle={false}
+                  placeholder={{ 
+                    label: workersWithCategory.length === 0 
+                      ? '미결제 작업일지에 작업자 없음' 
+                      : '공정과 작업자를 선택하세요', 
+                    value: '' 
+                  }}
+                />
+              </View>
+            )}
+          </>
         )}
 
         {/* 금액 */}
