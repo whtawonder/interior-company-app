@@ -23,6 +23,7 @@ type WorkerWithCategory = {
   display_label: string;
   value: string;
   account_info?: string;
+  work_log_ids: string[]; // 해당 작업일지 ID들
 }
 
 export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
@@ -41,6 +42,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
   const [vatIncluded, setVatIncluded] = useState(expenseData?.vat_included ?? true)
   const [accountNumber, setAccountNumber] = useState(expenseData?.account_number || '')
   const [notes, setNotes] = useState(expenseData?.notes || '')
+  const [selectedWorkLogIds, setSelectedWorkLogIds] = useState<string[]>([]) // 선택된 작업일지 ID들
   
   const [workCategories, setWorkCategories] = useState<WorkCategory[]>([])
   const [subcategories, setSubcategories] = useState<string[]>([])
@@ -112,7 +114,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
       // 해당 프로젝트의 미결제 작업일지를 공정별, 작업자별로 그룹화하여 합계 계산
       const { data: unpaidLogs, error: logsError } = await supabase
         .from('work_logs')
-        .select('work_cate1, worker_name, cost')
+        .select('id, work_cate1, worker_name, cost')
         .eq('project_id', projectId)
         .eq('payment_completed', false)
         .not('worker_name', 'is', null)
@@ -125,17 +127,19 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
         return
       }
 
-      // 공정 + 작업자 조합으로 그룹화하여 금액 합계 계산
+      // 공정 + 작업자 조합으로 그룹화하여 금액 합계 계산 및 작업일지 ID 수집
       const groupedData = unpaidLogs.reduce((acc: any, log: any) => {
         const key = `${log.work_cate1}|${log.worker_name}`
         if (!acc[key]) {
           acc[key] = {
             work_cate1: log.work_cate1,
             worker_name: log.worker_name,
-            total_cost: 0
+            total_cost: 0,
+            work_log_ids: []
           }
         }
         acc[key].total_cost += log.cost
+        acc[key].work_log_ids.push(log.id)
         return acc
       }, {})
 
@@ -201,6 +205,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
           work_cate1: item.work_cate1,
           worker_name: item.worker_name,
           total_cost: item.total_cost,
+          work_log_ids: item.work_log_ids,
           display_label: `${item.work_cate1} - ${item.worker_name} (₩${item.total_cost.toLocaleString()})`,
           value: `${item.work_cate1}|${item.worker_name}`,
           account_info: accountMap.get(item.worker_name) || ''
@@ -242,7 +247,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
     Alert.alert('불러오기 완료', '작업일지 정보를 불러왔습니다')
   }
 
-  // 작업자 선택 시 공정, 금액, 계좌번호 자동 입력
+  // 작업자 선택 시 공정, 금액, 계좌번호, 작업일지 ID들 자동 입력
   const handleWorkerSelect = (selectedValue: string) => {
     if (!selectedValue) return
 
@@ -261,6 +266,9 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
       if (selectedWorker.account_info) {
         setAccountNumber(selectedWorker.account_info)
       }
+      
+      // 작업일지 ID들 저장
+      setSelectedWorkLogIds(selectedWorker.work_log_ids)
     }
   }
 
@@ -300,7 +308,8 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
       vat_included: vatIncluded,
       account_number: accountNumber || null,
       status: 'pending', // 상태는 항상 대기로 고정
-      notes: notes || null
+      notes: notes || null,
+      work_log_ids: selectedWorkLogIds.length > 0 ? selectedWorkLogIds : null // 작업일지 ID들 저장
     }
 
     try {
@@ -401,6 +410,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
               setWorkCategory('')
               setAmount('')
               setAccountNumber('')
+              setSelectedWorkLogIds([])
             }}
             items={[
               { label: '시공', value: '시공' },
