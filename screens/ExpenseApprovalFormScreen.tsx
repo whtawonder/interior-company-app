@@ -105,16 +105,16 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
       // 1. 해당 프로젝트의 미결제 작업일지에서 작업자 이름 가져오기
       const { data: unpaidLogs, error: logsError } = await supabase
         .from('work_logs')
-        .select('work_subcategory')
+        .select('worker_name')
         .eq('project_id', projectId)
         .eq('payment_completed', false)
-        .not('work_subcategory', 'is', null)
+        .not('worker_name', 'is', null)
 
       if (logsError) throw logsError
 
       // 작업일지에 있는 작업자 이름들 (중복 제거)
       const workerNamesInLogs = [...new Set(
-        (unpaidLogs || []).map(log => log.work_subcategory).filter(Boolean)
+        (unpaidLogs || []).map(log => log.worker_name).filter(Boolean)
       )] as string[]
 
       if (workerNamesInLogs.length === 0) {
