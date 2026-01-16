@@ -357,23 +357,22 @@ const s = StyleSheet.create({
     borderBottomColor: '#eee', 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
-    alignItems: 'flex-start' 
+    alignItems: 'center'
   },
   headerLeft: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center'
   },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#333', marginRight: 10 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#333', marginRight: 8 },
   bankBadge: {
     backgroundColor: '#007AFF',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    alignSelf: 'flex-start'
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 12
   },
   bankBadgeText: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#fff',
     fontWeight: 'bold'
   },
