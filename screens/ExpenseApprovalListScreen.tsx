@@ -15,7 +15,8 @@ type ExpenseItem = {
   vat_included: boolean; 
   account_number: string | null; 
   status: string; 
-  created_at: string 
+  created_at: string;
+  work_log_ids: string[] | null; // 해당 작업일지 ID들
 }
 
 export default function ExpenseApprovalListScreen({ navigation }: any) {
@@ -110,33 +111,32 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
     }
   }
 
-  // 작업일지 결제완료 처리 함수
+  // 작업일지 결제완료 처리 함수 - 저장된 ID들만 처리
   const updateWorkLogPaymentStatus = async (expense: ExpenseItem, paymentCompleted: boolean) => {
     // 직영/외주인 경우에만 작업일지 결제완료 처리
     if (expense.classification !== '직영' && expense.classification !== '외주') {
       return
     }
 
-    // 공정과 작업자 정보가 있어야 함
-    if (!expense.work_category || !expense.work_subcategory) {
+    // 저장된 작업일지 ID들이 있어야 함
+    if (!expense.work_log_ids || expense.work_log_ids.length === 0) {
+      console.warn('저장된 작업일지 ID가 없습니다.')
       return
     }
 
     try {
-      // 해당 프로젝트, 공정, 작업자의 작업일지들을 찾아서 결제완료 상태 변경
+      // 저장된 ID들만 결제완료 상태 변경
       const { error } = await supabase
         .from('work_logs')
         .update({ payment_completed: paymentCompleted })
-        .eq('project_id', expense.project_id)
-        .eq('work_cate1', expense.work_category)
-        .eq('worker_name', expense.work_subcategory)
+        .in('id', expense.work_log_ids)
 
       if (error) {
         console.error('작업일지 결제상태 변경 실패:', error)
         throw error
       }
 
-      console.log(`작업일지 결제상태 변경 성공: ${expense.work_category} - ${expense.work_subcategory}`)
+      console.log(`작업일지 결제상태 변경 성공: ${expense.work_log_ids.length}건`)
     } catch (error) {
       console.error('작업일지 업데이트 오류:', error)
       // 에러가 있어도 사용자에게는 전체 프로세스를 중단하지 않음
@@ -166,7 +166,7 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
 
                 if (expenseError) throw expenseError
 
-                // 2. 작업일지 결제완료 처리
+                // 2. 저장된 작업일지 ID들만 결제완료 처리
                 await updateWorkLogPaymentStatus(expense, true)
 
                 Alert.alert('성공', '완료로 변경되었습니다')
@@ -197,7 +197,7 @@ export default function ExpenseApprovalListScreen({ navigation }: any) {
 
                 if (expenseError) throw expenseError
 
-                // 2. 작업일지 결제완료 취소
+                // 2. 저장된 작업일지 ID들만 결제완료 취소
                 await updateWorkLogPaymentStatus(expense, false)
 
                 Alert.alert('성공', '대기로 변경되었습니다')
