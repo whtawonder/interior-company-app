@@ -135,6 +135,15 @@ export default function SiteDiaryListScreen({ navigation }: any) {
         {/* 헤더 */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>현장일지</Text>
+          <TouchableOpacity
+            style={[styles.addButton, !selectedProject && styles.addButtonDisabled]}
+            onPress={() =>
+              navigation.navigate('SiteDiaryForm', { projectId: selectedProject })
+            }
+            disabled={!selectedProject}
+          >
+            <Text style={styles.addButtonText}>+ 등록</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.filterContainer}>
@@ -155,15 +164,6 @@ export default function SiteDiaryListScreen({ navigation }: any) {
 
         <View style={styles.headerActions}>
           <Text style={styles.totalCount}>총 {photos.length}장</Text>
-          <TouchableOpacity
-            style={[styles.addButton, !selectedProject && styles.addButtonDisabled]}
-            onPress={() =>
-              navigation.navigate('SiteDiaryForm', { projectId: selectedProject })
-            }
-            disabled={!selectedProject}
-          >
-            <Text style={styles.addButtonText}>+ 사진 추가</Text>
-          </TouchableOpacity>
         </View>
 
         {loading ? (
@@ -199,6 +199,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 28,
@@ -224,9 +227,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
   },
   headerActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 16,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 8,
   },
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#FFF',
-    fontWeight: '600',
+    fontWeight: 'bold',
     fontSize: 16,
   },
   listContent: {
