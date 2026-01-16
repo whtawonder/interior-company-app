@@ -3,20 +3,27 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert,
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { supabase } from '../lib/supabase'
 
+type WorkerType = '직영' | '외주'
+
 type Worker = {
   id: string
   name: string
   default_cost: number
   is_active: boolean
+  worker_type: WorkerType
 }
 
 export default function WorkerManagementScreen({ navigation }: any) {
   const [workers, setWorkers] = useState<Worker[]>([])
   const [newWorkerName, setNewWorkerName] = useState('')
   const [newWorkerCost, setNewWorkerCost] = useState('')
+  const [newWorkerType, setNewWorkerType] = useState<WorkerType>('직영')
+  const [showWorkerTypeDropdown, setShowWorkerTypeDropdown] = useState(false)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
   const [editName, setEditName] = useState('')
   const [editCost, setEditCost] = useState('')
+  const [editWorkerType, setEditWorkerType] = useState<WorkerType>('직영')
+  const [showEditWorkerTypeDropdown, setShowEditWorkerTypeDropdown] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -63,7 +70,8 @@ export default function WorkerManagementScreen({ navigation }: any) {
       .insert([{ 
         name: newWorkerName.trim(), 
         default_cost: cost,
-        is_active: true 
+        is_active: true,
+        worker_type: newWorkerType
       }])
 
     if (error) {
@@ -73,6 +81,7 @@ export default function WorkerManagementScreen({ navigation }: any) {
       Alert.alert('성공', '작업자가 추가되었습니다')
       setNewWorkerName('')
       setNewWorkerCost('')
+      setNewWorkerType('직영')
       fetchWorkers()
     }
   }
@@ -81,6 +90,7 @@ export default function WorkerManagementScreen({ navigation }: any) {
     setEditingWorker(worker)
     setEditName(worker.name)
     setEditCost(worker.default_cost.toString())
+    setEditWorkerType(worker.worker_type || '직영')
   }
 
   const handleSaveEdit = async () => {
@@ -99,7 +109,8 @@ export default function WorkerManagementScreen({ navigation }: any) {
       .from('workers')
       .update({ 
         name: editName.trim(), 
-        default_cost: cost 
+        default_cost: cost,
+        worker_type: editWorkerType
       })
       .eq('id', editingWorker.id)
 
@@ -111,6 +122,7 @@ export default function WorkerManagementScreen({ navigation }: any) {
       setEditingWorker(null)
       setEditName('')
       setEditCost('')
+      setEditWorkerType('직영')
       fetchWorkers()
     }
   }
@@ -119,6 +131,7 @@ export default function WorkerManagementScreen({ navigation }: any) {
     setEditingWorker(null)
     setEditName('')
     setEditCost('')
+    setEditWorkerType('직영')
   }
 
   const handleToggleActive = async (worker: Worker) => {
@@ -202,6 +215,41 @@ export default function WorkerManagementScreen({ navigation }: any) {
             placeholderTextColor="#999"
             keyboardType="numeric"
           />
+          
+          {/* 작업자 구분 드롭다운 */}
+          <View style={s.dropdownContainer}>
+            <Text style={s.dropdownLabel}>작업자 구분</Text>
+            <TouchableOpacity 
+              style={s.dropdownButton}
+              onPress={() => setShowWorkerTypeDropdown(!showWorkerTypeDropdown)}
+            >
+              <Text style={s.dropdownButtonText}>{newWorkerType}</Text>
+              <Text style={s.dropdownArrow}>▼</Text>
+            </TouchableOpacity>
+            {showWorkerTypeDropdown && (
+              <View style={s.dropdownMenu}>
+                <TouchableOpacity 
+                  style={s.dropdownItem}
+                  onPress={() => {
+                    setNewWorkerType('직영')
+                    setShowWorkerTypeDropdown(false)
+                  }}
+                >
+                  <Text style={s.dropdownItemText}>직영</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={s.dropdownItem}
+                  onPress={() => {
+                    setNewWorkerType('외주')
+                    setShowWorkerTypeDropdown(false)
+                  }}
+                >
+                  <Text style={s.dropdownItemText}>외주</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
           <TouchableOpacity style={s.addButton} onPress={handleAddWorker}>
             <Text style={s.addButtonText}>+ 추가</Text>
           </TouchableOpacity>
@@ -233,6 +281,41 @@ export default function WorkerManagementScreen({ navigation }: any) {
                       placeholderTextColor="#999"
                       keyboardType="numeric"
                     />
+                    
+                    {/* 수정 모드 작업자 구분 드롭다운 */}
+                    <View style={s.dropdownContainer}>
+                      <Text style={s.dropdownLabel}>작업자 구분</Text>
+                      <TouchableOpacity 
+                        style={s.dropdownButton}
+                        onPress={() => setShowEditWorkerTypeDropdown(!showEditWorkerTypeDropdown)}
+                      >
+                        <Text style={s.dropdownButtonText}>{editWorkerType}</Text>
+                        <Text style={s.dropdownArrow}>▼</Text>
+                      </TouchableOpacity>
+                      {showEditWorkerTypeDropdown && (
+                        <View style={s.dropdownMenu}>
+                          <TouchableOpacity 
+                            style={s.dropdownItem}
+                            onPress={() => {
+                              setEditWorkerType('직영')
+                              setShowEditWorkerTypeDropdown(false)
+                            }}
+                          >
+                            <Text style={s.dropdownItemText}>직영</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={s.dropdownItem}
+                            onPress={() => {
+                              setEditWorkerType('외주')
+                              setShowEditWorkerTypeDropdown(false)
+                            }}
+                          >
+                            <Text style={s.dropdownItemText}>외주</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+
                     <View style={s.editButtons}>
                       <TouchableOpacity style={s.saveButton} onPress={handleSaveEdit}>
                         <Text style={s.saveButtonText}>저장</Text>
@@ -254,6 +337,10 @@ export default function WorkerManagementScreen({ navigation }: any) {
                         >
                           <Text style={s.statusText}>{worker.is_active ? '활성' : '비활성'}</Text>
                         </TouchableOpacity>
+                        {/* 직영/외주 배지 추가 */}
+                        <View style={[s.workerTypeBadge, worker.worker_type === '직영' ? s.workerTypeDirect : s.workerTypeOutsource]}>
+                          <Text style={s.workerTypeText}>{worker.worker_type || '직영'}</Text>
+                        </View>
                       </View>
                       <Text style={s.workerCost}>{formatCurrency(worker.default_cost)}</Text>
                     </View>
@@ -295,17 +382,29 @@ const s = StyleSheet.create({
   listSection: { backgroundColor: '#fff', padding: 20, borderRadius: 12, elevation: 2 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
   input: { backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, fontSize: 16, marginBottom: 10 },
-  addButton: { backgroundColor: '#007AFF', padding: 14, borderRadius: 8, alignItems: 'center' },
+  dropdownContainer: { marginBottom: 10 },
+  dropdownLabel: { fontSize: 14, color: '#666', marginBottom: 6, fontWeight: '500' },
+  dropdownButton: { backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dropdownButtonText: { fontSize: 16, color: '#333' },
+  dropdownArrow: { fontSize: 12, color: '#666' },
+  dropdownMenu: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginTop: 4, elevation: 3 },
+  dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  dropdownItemText: { fontSize: 16, color: '#333' },
+  addButton: { backgroundColor: '#007AFF', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 4 },
   addButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   emptyText: { textAlign: 'center', fontSize: 16, color: '#999', paddingVertical: 30 },
   workerCard: { backgroundColor: '#f5f5f5', padding: 16, borderRadius: 8, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   workerInfo: { flex: 1 },
   workerNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   workerName: { fontSize: 18, fontWeight: 'bold', color: '#333', marginRight: 10 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginRight: 6 },
   statusActive: { backgroundColor: '#34C759' },
   statusInactive: { backgroundColor: '#999' },
   statusText: { fontSize: 11, color: '#fff', fontWeight: 'bold' },
+  workerTypeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  workerTypeDirect: { backgroundColor: '#007AFF' },
+  workerTypeOutsource: { backgroundColor: '#FF9500' },
+  workerTypeText: { fontSize: 11, color: '#fff', fontWeight: 'bold' },
   workerCost: { fontSize: 16, color: '#666', fontWeight: '600' },
   workerActions: { flexDirection: 'row' },
   editButtonSmall: { paddingHorizontal: 12, paddingVertical: 6, marginRight: 6 },
