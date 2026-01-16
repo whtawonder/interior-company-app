@@ -121,7 +121,9 @@ export default function WorkLogListScreen({ route, navigation }: any) {
   }
 
   const handleAdd = () => { 
-    navigation.navigate('작업일지 입력', { editMode: false }) 
+    // 선택된 프로젝트가 있으면 해당 프로젝트 ID를 전달
+    const projectId = selectedProject !== 'all' ? selectedProject : undefined
+    navigation.navigate('작업일지 입력', { editMode: false, preSelectedProjectId: projectId }) 
   }
   
   const handleEdit = (log: WorkLogWithProject) => { 
