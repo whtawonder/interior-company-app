@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabase'
 
 type WorkCategory = { id: string; category_name: string; subcategories: string[] }
 type UnpaidWorkLog = { id: string; work_date: string; work_category: string | null; work_subcategory: string | null; notes: string | null }
+type Worker = { id: string; name: string; worker_type: string }
 
 export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
   const { projectId, expenseData, editMode } = route.params || {}
@@ -38,6 +39,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
   const [subcategories, setSubcategories] = useState<string[]>([])
   const [unpaidWorkLogs, setUnpaidWorkLogs] = useState<UnpaidWorkLog[]>([])
   const [showUnpaidLogs, setShowUnpaidLogs] = useState(false)
+  const [workers, setWorkers] = useState<Worker[]>([])
 
   useEffect(() => {
     loadWorkCategories()
@@ -56,6 +58,15 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
   useEffect(() => {
     if (classification === '직영' || classification === '외주') {
       setVatIncluded(false)
+    }
+  }, [classification])
+
+  // 분류가 변경되면 해당 타입의 작업자 불러오기
+  useEffect(() => {
+    if (classification === '직영' || classification === '외주') {
+      loadWorkersByType(classification)
+    } else {
+      setWorkers([])
     }
   }, [classification])
 
@@ -81,6 +92,21 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
 
     if (!error && data) {
       setWorkCategories(data as any)
+    }
+  }
+
+  const loadWorkersByType = async (workerType: string) => {
+    const { data, error } = await supabase
+      .from('workers')
+      .select('id, name, worker_type')
+      .eq('worker_type', workerType)
+      .eq('is_active', true)
+      .order('name')
+
+    if (!error && data) {
+      setWorkers(data as Worker[])
+    } else {
+      setWorkers([])
     }
   }
 
@@ -174,6 +200,9 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
 
   // 직영/외주인 경우 부가세 포함 버튼 비활성화
   const isVatDisabled = classification === '직영' || classification === '외주'
+  
+  // 직영/외주인 경우 세부분류를 작업자 목록에서 선택
+  const isWorkerTypeClassification = classification === '직영' || classification === '외주'
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
@@ -230,7 +259,12 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
         <View style={s.pickerContainer}>
           <RNPickerSelect
             value={classification}
-            onValueChange={(v) => setClassification(v)}
+            onValueChange={(v) => {
+              setClassification(v)
+              // 분류 변경 시 세부분류 초기화
+              setWorkSubcategory('')
+              setCustomSubcategory('')
+            }}
             items={[
               { label: '시공', value: '시공' },
               { label: '자재', value: '자재' },
@@ -284,8 +318,13 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
           </View>
         )}
 
-        {/* 공정 세부분류 */}
-        <Text style={s.label}>공정 세부분류</Text>
+        {/* 공정 세부분류 - 직영/외주일 때는 작업자 목록에서 선택 */}
+        <Text style={s.label}>
+          공정 세부분류
+          {isWorkerTypeClassification && (
+            <Text style={s.workerTypeNote}> (작업자 선택)</Text>
+          )}
+        </Text>
         <View style={s.toggleRow}>
           <TouchableOpacity
             style={[s.toggleButton, !useCustomSubcategory && s.toggleButtonActive]}
@@ -318,11 +357,18 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
             <RNPickerSelect
               value={workSubcategory}
               onValueChange={(v) => setWorkSubcategory(v)}
-              items={subcategories.map(su => ({ label: su, value: su }))}
+              items={
+                isWorkerTypeClassification
+                  ? workers.map(w => ({ label: w.name, value: w.name }))
+                  : subcategories.map(su => ({ label: su, value: su }))
+              }
               style={ps}
               useNativeAndroidPickerStyle={false}
-              placeholder={{ label: '세부분류 선택', value: '' }}
-              disabled={!workCategory && !useCustomCategory}
+              placeholder={{ 
+                label: isWorkerTypeClassification ? '작업자 선택' : '세부분류 선택', 
+                value: '' 
+              }}
+              disabled={!isWorkerTypeClassification && !workCategory && !useCustomCategory}
             />
           </View>
         )}
@@ -469,6 +515,7 @@ const s = StyleSheet.create({
   section: { marginBottom: 20 },
   label: { fontSize: 16, fontWeight: '600', marginTop: 15, marginBottom: 8, color: '#333' },
   disabledNote: { fontSize: 13, color: '#FF9500', fontWeight: 'normal' },
+  workerTypeNote: { fontSize: 13, color: '#007AFF', fontWeight: 'normal' },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, fontSize: 16 },
   textArea: { height: 80, textAlignVertical: 'top' },
   pickerContainer: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, overflow: 'hidden' },
