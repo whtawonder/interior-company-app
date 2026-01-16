@@ -25,11 +25,13 @@ export default function WorkLogScreen({ route, navigation }: any) {
   const [projectName, setProjectName] = useState<string>('')
   const [workDate, setWorkDate] = useState(new Date().toISOString().split('T')[0])
   const [workContent, setWorkContent] = useState('')
+  const [baseCost, setBaseCost] = useState('')
   const [cost, setCost] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [workerName, setWorkerName] = useState('')
   const [selectedWorker, setSelectedWorker] = useState<string>('direct')
   const [notes, setNotes] = useState('기본')
+  const [customNote, setCustomNote] = useState('')
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [loading, setLoading] = useState(false)
@@ -39,7 +41,6 @@ export default function WorkLogScreen({ route, navigation }: any) {
 
   useEffect(() => {
     const focusListener = navigation?.addListener('focus', () => {
-      // 작업자 목록 새로고침
       fetchWorkers()
       
       if (!editMode) { 
@@ -64,11 +65,23 @@ export default function WorkLogScreen({ route, navigation }: any) {
       setSelectedProject(logData.project_id)
       setWorkDate(logData.work_date)
       setWorkContent(logData.work_content)
-      setCost(logData.cost.toString())
+      const logCost = logData.cost.toString()
+      setBaseCost(logCost)
+      setCost(logCost)
       setSelectedCategory(logData.work_cate1)
       setWorkerName(logData.worker_name)
       setSelectedWorker('direct')
-      setNotes(logData.notes || '기본')
+      
+      const noteValue = logData.notes || '기본'
+      const predefinedNotes = ['기본', '타현장', '연장 0.5', '연장 1', '연장 1.5', '연장 2', '연장반']
+      if (predefinedNotes.includes(noteValue)) {
+        setNotes(noteValue)
+        setCustomNote('')
+      } else {
+        setNotes('custom')
+        setCustomNote(noteValue)
+      }
+      
       setSelectedDate(new Date(logData.work_date))
       
       const project = projects.find(p => p.id === logData.project_id)
@@ -88,18 +101,59 @@ export default function WorkLogScreen({ route, navigation }: any) {
     }
   }, [preSelectedProjectId, projects, editMode])
   
-  // 작업자 선택 시 금액 자동 입력
+  // 작업자 선택 시 기본 금액 설정
   useEffect(() => {
     if (selectedWorker && selectedWorker !== 'direct') {
       const worker = workers.find(w => w.id === selectedWorker)
       if (worker) {
-        setCost(worker.default_cost.toString())
+        const defaultCost = worker.default_cost.toString()
+        setBaseCost(defaultCost)
+        setCost(defaultCost)
         setWorkerName(worker.name)
+        // 비고에 따른 금액 재계산
+        calculateCostByNote(defaultCost, notes)
       }
-    } else if (selectedWorker === 'direct') {
-      // 직접 입력 모드로 돌아갈 때는 초기화하지 않음
     }
   }, [selectedWorker, workers])
+  
+  // 비고 변경 시 금액 재계산
+  useEffect(() => {
+    if (baseCost && notes !== 'custom') {
+      calculateCostByNote(baseCost, notes)
+    }
+  }, [notes])
+  
+  const calculateCostByNote = (baseAmount: string, noteType: string) => {
+    const base = parseFloat(baseAmount)
+    if (isNaN(base)) return
+    
+    let finalCost = base
+    
+    switch(noteType) {
+      case '타현장':
+        finalCost = base * 0.5
+        break
+      case '연장 0.5':
+        finalCost = base + 10000
+        break
+      case '연장 1':
+        finalCost = base + 20000
+        break
+      case '연장 1.5':
+        finalCost = base + 30000
+        break
+      case '연장 2':
+        finalCost = base + 40000
+        break
+      case '연장반':
+        finalCost = base * 1.5
+        break
+      default:
+        finalCost = base
+    }
+    
+    setCost(Math.round(finalCost).toString())
+  }
 
   const loadData = async () => { 
     setLoadingData(true)
@@ -156,6 +210,13 @@ export default function WorkLogScreen({ route, navigation }: any) {
       return 
     }
     
+    // 비고 값 결정
+    const finalNote = notes === 'custom' ? customNote.trim() : notes
+    if (!finalNote) {
+      alert('비고를 입력해주세요')
+      return
+    }
+    
     setLoading(true)
     
     const submitData = { 
@@ -165,7 +226,7 @@ export default function WorkLogScreen({ route, navigation }: any) {
       cost: parseFloat(cost), 
       work_cate1: selectedCategory, 
       worker_name: workerName, 
-      notes: notes 
+      notes: finalNote
     }
     
     try {
@@ -217,11 +278,13 @@ export default function WorkLogScreen({ route, navigation }: any) {
     setProjectName('')
     setWorkDate(new Date().toISOString().split('T')[0])
     setWorkContent('')
+    setBaseCost('')
     setCost('')
     setSelectedCategory('')
     setWorkerName('')
     setSelectedWorker('direct')
     setNotes('기본')
+    setCustomNote('')
     setSelectedDate(new Date()) 
   }
   
@@ -242,6 +305,11 @@ export default function WorkLogScreen({ route, navigation }: any) {
   
   const handleWorkerManagement = () => {
     navigation.navigate('작업자 관리')
+  }
+  
+  const handleCostChange = (value: string) => {
+    setCost(value)
+    setBaseCost(value)
   }
 
   if (loadingData) { 
@@ -330,9 +398,6 @@ export default function WorkLogScreen({ route, navigation }: any) {
             value={selectedWorker} 
             onValueChange={(v) => {
               setSelectedWorker(v)
-              if (v === 'direct') {
-                // 직접 입력 모드로 선택시 기존 값 유지
-              }
             }} 
             items={[
               { label: '직접 입력', value: 'direct' },
@@ -360,30 +425,41 @@ export default function WorkLogScreen({ route, navigation }: any) {
         <TextInput 
           style={s.i} 
           value={cost} 
-          onChangeText={setCost} 
+          onChangeText={handleCostChange} 
           placeholder="금액을 입력하세요" 
           placeholderTextColor="#999" 
           keyboardType="numeric" 
         />
         
-        <Text style={s.l}>비고</Text>
+        <Text style={s.l}>비고 *</Text>
         <View style={s.pc}>
           <RNPickerSelect 
             value={notes} 
             onValueChange={(v) => setNotes(v)} 
             items={[
               { label: '기본', value: '기본' }, 
-              { label: '타현장', value: '타현장' }, 
-              { label: '연장 0.5', value: '연장 0.5' }, 
-              { label: '연장 1', value: '연장 1' }, 
-              { label: '연장 1.5', value: '연장 1.5' }, 
-              { label: '연장 2', value: '연장 2' }, 
-              { label: '연장반', value: '연장반' }
+              { label: '타현장 (50% 감소)', value: '타현장' }, 
+              { label: '연장 0.5 (+10,000원)', value: '연장 0.5' }, 
+              { label: '연장 1 (+20,000원)', value: '연장 1' }, 
+              { label: '연장 1.5 (+30,000원)', value: '연장 1.5' }, 
+              { label: '연장 2 (+40,000원)', value: '연장 2' }, 
+              { label: '연장반 (50% 증가)', value: '연장반' },
+              { label: '직접 입력', value: 'custom' }
             ]} 
             style={ps} 
             useNativeAndroidPickerStyle={false} 
           />
         </View>
+        
+        {notes === 'custom' && (
+          <TextInput 
+            style={[s.i, { marginTop: 10 }]} 
+            value={customNote} 
+            onChangeText={setCustomNote} 
+            placeholder="비고를 입력하세요" 
+            placeholderTextColor="#999" 
+          />
+        )}
         
         {editMode && (
           <TouchableOpacity style={s.cb} onPress={handleCancel}>
