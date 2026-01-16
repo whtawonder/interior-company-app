@@ -318,12 +318,9 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
           </View>
         )}
 
-        {/* 공정 세부분류 - 직영/외주일 때는 작업자 목록에서 선택 */}
+        {/* 작업자 선택 / 공정 세부분류 */}
         <Text style={s.label}>
-          공정 세부분류
-          {isWorkerTypeClassification && (
-            <Text style={s.workerTypeNote}> (작업자 선택)</Text>
-          )}
+          {isWorkerTypeClassification ? '작업자 선택' : '공정 세부분류'}
         </Text>
         <View style={s.toggleRow}>
           <TouchableOpacity
@@ -349,7 +346,7 @@ export default function ExpenseApprovalFormScreen({ route, navigation }: any) {
             style={s.input}
             value={customSubcategory}
             onChangeText={setCustomSubcategory}
-            placeholder="세부분류 입력"
+            placeholder={isWorkerTypeClassification ? "작업자 이름 입력" : "세부분류 입력"}
             placeholderTextColor="#999"
           />
         ) : (
@@ -515,7 +512,6 @@ const s = StyleSheet.create({
   section: { marginBottom: 20 },
   label: { fontSize: 16, fontWeight: '600', marginTop: 15, marginBottom: 8, color: '#333' },
   disabledNote: { fontSize: 13, color: '#FF9500', fontWeight: 'normal' },
-  workerTypeNote: { fontSize: 13, color: '#007AFF', fontWeight: 'normal' },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, fontSize: 16 },
   textArea: { height: 80, textAlignVertical: 'top' },
   pickerContainer: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, overflow: 'hidden' },
