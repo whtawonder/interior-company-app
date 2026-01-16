@@ -16,6 +16,12 @@ import SiteDiaryListScreen from './screens/SiteDiaryListScreen';
 import SiteDiaryFormScreen from './screens/SiteDiaryFormScreen';
 import SiteDiaryDetailScreen from './screens/SiteDiaryDetailScreen';
 
+// 지출결의서 화면들 추가 (기존 import에 추가)
+import ExpenseApprovalListScreen from './screens/ExpenseApprovalListScreen';
+import ExpenseApprovalFormScreen from './screens/ExpenseApprovalFormScreen';
+import SubcontractorAccountManagementScreen from './screens/SubcontractorAccountManagementScreen';
+import AccountSelectionModal from './screens/AccountSelectionModal';
+
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
@@ -91,6 +97,34 @@ function SiteDiaryStack() {
   );
 }
 
+// 지출결의서 스택 수정
+function ExpenseApprovalStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen
+        name="지출결의서"
+        component={ExpenseApprovalListScreen}
+        options={{ title: '지출결의서' }}
+      />
+      <Stack.Screen
+        name="지출결의서 입력"
+        component={ExpenseApprovalFormScreen}
+        options={{ title: '지출결의서 입력' }}
+      />
+      <Stack.Screen
+        name="계좌 관리"
+        component={SubcontractorAccountManagementScreen}
+        options={{ title: '계좌 관리' }}
+      />
+      <Stack.Screen
+        name="계좌 선택"
+        component={AccountSelectionModal}
+        options={{ title: '계좌 선택', presentation: 'modal' }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 // SafeArea를 고려한 Tab Navigator
 function MainTabNavigator() {
   const insets = useSafeAreaInsets();
@@ -157,6 +191,18 @@ function MainTabNavigator() {
           tabBarLabel: '현장일지',
           tabBarIcon: ({ color }) => (
             <Text style={{ fontSize: 24 }}>📷</Text>
+          ),
+        }}
+      />
+
+      {/* 5. 지출결의서 (새로 추가) */}
+      <Tab.Screen
+        name="ExpenseApprovalTab"
+        component={ExpenseApprovalStack}
+        options={{
+          tabBarLabel: '지출결의서',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 24 }}>💰</Text>
           ),
         }}
       />

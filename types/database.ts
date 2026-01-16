@@ -1,13 +1,31 @@
-export type WorkLog = {
-  id: string
-  project_id: string
-  work_date: string
-  work_content: string
-  cost: number
-  work_cate1: string
-  worker_name: string
-  notes: string | null  // ← 추가
-  created_at: string
+// types/database.ts
+export interface ExpenseApproval {
+  id: string;
+  project_id: string;
+  classification: '시공' | '자재' | '직영' | '외주';
+  work_category?: string;
+  work_subcategory?: string;
+  amount: number;
+  vat_included: boolean;
+  account_number?: string;
+  payment_date?: string;
+  status: 'pending' | 'approved' | 'paid';
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WorkLog {
+  id: string;
+  project_id: string;
+  work_date: string;
+  work_category?: string;
+  work_subcategory?: string;
+  worker_count?: number;
+  payment_completed?: boolean;
+  expense_approval_id?: string;
+  notes?: string;
+  created_at?: string;
 }
 
 export type Project = {
@@ -39,3 +57,4 @@ export interface SitePhotoWithProject extends SitePhoto {
     client_name: string;
   };
 }
+

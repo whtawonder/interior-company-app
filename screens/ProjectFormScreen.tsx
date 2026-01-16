@@ -19,6 +19,8 @@ export default function ProjectFormScreen({ route, navigation }: any) {
   const [estimatedBudget, setEstimatedBudget] = useState('')
   const [status, setStatus] = useState('estimate')
   const [notes, setNotes] = useState('')
+  const [bankAccount, setBankAccount] = useState('')
+  const [googleDriveUrl, setGoogleDriveUrl] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -35,13 +37,30 @@ export default function ProjectFormScreen({ route, navigation }: any) {
       setEstimatedBudget(projectData.estimated_budget.toString())
       setStatus(projectData.status)
       setNotes(projectData.notes || '')
+      setBankAccount(projectData.bank_account || '')
+      setGoogleDriveUrl(projectData.google_drive_url || '')
     }
   }, [editMode, projectData])
 
   const handleSubmit = async () => {
     if (!projectName || !clientName || !estimatedBudget) { alert('프로젝트명, 클라이언트명, 예산은 필수입니다'); return }
     setLoading(true)
-    const submitData = { project_name: projectName, client_name: clientName, work_type: workType, area: area ? parseFloat(area) : null, location: location || null, business_category_major: businessMajor || null, business_category_minor: businessMinor || null, start_date: startDate, end_date: endDate || null, estimated_budget: parseFloat(estimatedBudget), status: status, notes: notes || null }
+    const submitData = { 
+      project_name: projectName, 
+      client_name: clientName, 
+      work_type: workType, 
+      area: area ? parseFloat(area) : null, 
+      location: location || null, 
+      business_category_major: businessMajor || null, 
+      business_category_minor: businessMinor || null, 
+      start_date: startDate, 
+      end_date: endDate || null, 
+      estimated_budget: parseFloat(estimatedBudget), 
+      status: status, 
+      notes: notes || null,
+      bank_account: bankAccount || null,
+      google_drive_url: googleDriveUrl || null
+    }
     try {
       if (editMode && projectData?.id) {
         const { error } = await supabase.from('projects').update(submitData).eq('id', projectData.id)
@@ -83,6 +102,15 @@ export default function ProjectFormScreen({ route, navigation }: any) {
         {Platform.OS === 'web' ? (<View style={s.i}><input type="date" value={endDate} onChange={(e: any) => setEndDate(e.target.value)} style={{ width: '100%', border: 'none', fontSize: 16, fontFamily: 'inherit' }} /></View>) : (<TextInput style={s.i} value={endDate} onChangeText={setEndDate} placeholder="YYYY-MM-DD (미정이면 비워두세요)" placeholderTextColor="#999" />)}
         <Text style={s.l}>예산 (원) *</Text>
         <TextInput style={s.i} value={estimatedBudget} onChangeText={setEstimatedBudget} placeholder="50000000" placeholderTextColor="#999" keyboardType="numeric" />
+        
+        {/* 사용통장 번호 필드 추가 */}
+        <Text style={s.l}>사용통장 번호</Text>
+        <TextInput style={s.i} value={bankAccount} onChangeText={setBankAccount} placeholder="110-123-456789" placeholderTextColor="#999" keyboardType="default" />
+        
+        {/* 구글드라이브 경로 필드 추가 */}
+        <Text style={s.l}>구글드라이브 경로</Text>
+        <TextInput style={s.i} value={googleDriveUrl} onChangeText={setGoogleDriveUrl} placeholder="https://drive.google.com/drive/folders/..." placeholderTextColor="#999" keyboardType="url" autoCapitalize="none" />
+        
         <Text style={s.l}>상태 *</Text>
         <View style={s.pc}><RNPickerSelect value={status} onValueChange={(v) => setStatus(v)} items={[{ label: '견적', value: 'estimate' }, { label: '진행중', value: 'in_progress' }, { label: '완료', value: 'completed' }, { label: '취소', value: 'cancelled' }]} style={ps} useNativeAndroidPickerStyle={false} /></View>
         <Text style={s.l}>비고</Text>
