@@ -6,6 +6,13 @@ import RNPickerSelect from 'react-native-picker-select'
 import { supabase } from '../lib/supabase'
 import type { Project, WorkCategory } from '../types/database'
 
+type Worker = {
+  id: string
+  name: string
+  default_cost: number
+  is_active: boolean
+}
+
 export default function WorkLogScreen({ route, navigation }: any) {
   const editMode = route?.params?.editMode || false
   const logData = route?.params?.logData || null
@@ -13,6 +20,7 @@ export default function WorkLogScreen({ route, navigation }: any) {
   
   const [projects, setProjects] = useState<Project[]>([])
   const [categories, setCategories] = useState<WorkCategory[]>([])
+  const [workers, setWorkers] = useState<Worker[]>([])
   const [selectedProject, setSelectedProject] = useState<string>('')
   const [projectName, setProjectName] = useState<string>('')
   const [workDate, setWorkDate] = useState(new Date().toISOString().split('T')[0])
@@ -20,6 +28,7 @@ export default function WorkLogScreen({ route, navigation }: any) {
   const [cost, setCost] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [workerName, setWorkerName] = useState('')
+  const [selectedWorker, setSelectedWorker] = useState<string>('')
   const [notes, setNotes] = useState('기본')
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -30,12 +39,14 @@ export default function WorkLogScreen({ route, navigation }: any) {
 
   useEffect(() => {
     const focusListener = navigation?.addListener('focus', () => {
+      // 작업자 목록 새로고침
+      fetchWorkers()
+      
       if (!editMode) { 
         resetForm()
         setSelectedDate(new Date())
         setWorkDate(new Date().toISOString().split('T')[0])
         
-        // preSelectedProjectId가 있으면 해당 프로젝트 설정
         if (route?.params?.preSelectedProjectId) {
           setSelectedProject(route.params.preSelectedProjectId)
           const project = projects.find(p => p.id === route.params.preSelectedProjectId)
@@ -59,7 +70,6 @@ export default function WorkLogScreen({ route, navigation }: any) {
       setNotes(logData.notes || '기본')
       setSelectedDate(new Date(logData.work_date))
       
-      // 수정 모드일 때 프로젝트 이름 찾기
       const project = projects.find(p => p.id === logData.project_id)
       if (project) {
         setProjectName(`${project.project_name} (${project.client_name})`)
@@ -68,7 +78,6 @@ export default function WorkLogScreen({ route, navigation }: any) {
   }, [editMode, logData, projects])
   
   useEffect(() => {
-    // preSelectedProjectId가 있고 projects가 로드되면 프로젝트 설정
     if (preSelectedProjectId && projects.length > 0 && !editMode) {
       setSelectedProject(preSelectedProjectId)
       const project = projects.find(p => p.id === preSelectedProjectId)
@@ -77,10 +86,21 @@ export default function WorkLogScreen({ route, navigation }: any) {
       }
     }
   }, [preSelectedProjectId, projects, editMode])
+  
+  // 작업자 선택 시 금액 자동 입력
+  useEffect(() => {
+    if (selectedWorker) {
+      const worker = workers.find(w => w.name === selectedWorker)
+      if (worker) {
+        setCost(worker.default_cost.toString())
+        setWorkerName(worker.name)
+      }
+    }
+  }, [selectedWorker, workers])
 
   const loadData = async () => { 
     setLoadingData(true)
-    await Promise.all([fetchProjects(), fetchCategories()])
+    await Promise.all([fetchProjects(), fetchCategories(), fetchWorkers()])
     setLoadingData(false) 
   }
   
@@ -111,6 +131,20 @@ export default function WorkLogScreen({ route, navigation }: any) {
     } else { 
       setCategories(data || []) 
     } 
+  }
+  
+  const fetchWorkers = async () => {
+    const { data, error } = await supabase
+      .from('workers')
+      .select('*')
+      .eq('is_active', true)
+      .order('name')
+    
+    if (error) {
+      console.error('작업자 로드 실패:', error)
+    } else {
+      setWorkers(data || [])
+    }
   }
 
   const handleSubmit = async () => {
@@ -183,6 +217,7 @@ export default function WorkLogScreen({ route, navigation }: any) {
     setCost('')
     setSelectedCategory('')
     setWorkerName('')
+    setSelectedWorker('')
     setNotes('기본')
     setSelectedDate(new Date()) 
   }
@@ -201,6 +236,10 @@ export default function WorkLogScreen({ route, navigation }: any) {
       setWorkDate(date.toISOString().split('T')[0]) 
     } 
   }
+  
+  const handleWorkerManagement = () => {
+    navigation.navigate('작업자 관리')
+  }
 
   if (loadingData) { 
     return (
@@ -216,7 +255,6 @@ export default function WorkLogScreen({ route, navigation }: any) {
       <ScrollView style={s.c}>
         <Text style={s.ti}>{editMode ? '작업일지 수정' : '작업일지 입력'}</Text>
         
-        {/* 프로젝트 이름 표시 */}
         {selectedProject && projectName && (
           <View style={s.projectInfo}>
             <Text style={s.projectLabel}>프로젝트</Text>
@@ -278,6 +316,45 @@ export default function WorkLogScreen({ route, navigation }: any) {
           numberOfLines={4} 
         />
         
+        <View style={s.labelRow}>
+          <Text style={s.l}>작업자 *</Text>
+          <TouchableOpacity onPress={handleWorkerManagement} style={s.manageButton}>
+            <Text style={s.manageButtonText}>⚙️ 관리</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={s.pc}>
+          <RNPickerSelect 
+            value={selectedWorker} 
+            onValueChange={(v) => {
+              setSelectedWorker(v)
+              if (!v) {
+                setWorkerName('')
+                setCost('')
+              }
+            }} 
+            items={[
+              { label: '직접 입력', value: '' },
+              ...(workers || []).map(w => ({ 
+                label: `${w.name} (${w.default_cost.toLocaleString()}원)`, 
+                value: w.name 
+              }))
+            ]} 
+            placeholder={{ label: '작업자를 선택하세요', value: '' }} 
+            style={ps} 
+            useNativeAndroidPickerStyle={false} 
+          />
+        </View>
+        
+        {!selectedWorker && (
+          <TextInput 
+            style={[s.i, { marginTop: 10 }]} 
+            value={workerName} 
+            onChangeText={setWorkerName} 
+            placeholder="작업자 이름을 입력하세요" 
+            placeholderTextColor="#999" 
+          />
+        )}
+        
         <Text style={s.l}>비용 (원) *</Text>
         <TextInput 
           style={s.i} 
@@ -286,15 +363,6 @@ export default function WorkLogScreen({ route, navigation }: any) {
           placeholder="금액을 입력하세요" 
           placeholderTextColor="#999" 
           keyboardType="numeric" 
-        />
-        
-        <Text style={s.l}>담당자 *</Text>
-        <TextInput 
-          style={s.i} 
-          value={workerName} 
-          onChangeText={setWorkerName} 
-          placeholder="담당자 이름을 입력하세요" 
-          placeholderTextColor="#999" 
         />
         
         <Text style={s.l}>비고</Text>
@@ -363,7 +431,25 @@ const s = StyleSheet.create({
     color: '#007AFF', 
     fontWeight: 'bold' 
   },
-  l: { fontSize: 16, fontWeight: '600', marginTop: 15, marginBottom: 8, color: '#333' }, 
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 15,
+    marginBottom: 8
+  },
+  l: { fontSize: 16, fontWeight: '600', marginTop: 15, marginBottom: 8, color: '#333' },
+  manageButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6
+  },
+  manageButtonText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600'
+  },
   i: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, fontSize: 16 }, 
   db: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }, 
   dbt: { fontSize: 16, color: '#333' }, 
